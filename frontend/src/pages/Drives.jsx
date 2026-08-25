@@ -84,7 +84,7 @@ export default function Drives() {
             {drives.some((d) => d.is_active) && <span className="h-1.5 w-1.5 rounded-full bg-green shadow-[0_0_8px_var(--green)]" />}
             {drives.filter((d) => d.is_accepting).length} accepting of {drives.length}
           </p>
-          <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Drives</h1>
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Drives</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <a href={api.exportUrl('drives')} className="btn-ghost">Export CSV</a>

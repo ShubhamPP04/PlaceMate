@@ -79,7 +79,7 @@ export default function Dashboard() {
       <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
         <div>
           <p className="text-[12px] leading-none text-ink-low">Overview</p>
-          <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">
             Placement Overview
           </h1>
         </div>
@@ -90,21 +90,21 @@ export default function Dashboard() {
       </div>
 
       {/* ── KPI row: identical card anatomy, equal heights ── */}
-      <div className="rise rise-d1 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <div className="arc-card arc-lime flex h-full min-h-[132px] flex-col justify-between p-5">
+      <div className="rise rise-d1 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        <div className="arc-card arc-lime flex h-full min-h-[120px] flex-col justify-between p-4 sm:min-h-[132px] sm:p-5">
           <p className="text-[11px] font-bold uppercase leading-none tracking-wide opacity-70">Placement rate</p>
-          <p className="font-display text-[40px] font-extrabold leading-none tabular-nums">
+          <p className="kpi-num font-display text-[40px] font-extrabold leading-none tabular-nums">
             {stats.placement_pct}<span className="text-[22px] align-top">%</span>
           </p>
           <p className="text-[11px] font-semibold leading-none opacity-70">{stats.selected} of {stats.total_students} placed · {stats.unplaced} unplaced</p>
         </div>
         {CARDS.map((s) => (
-          <div key={s.label} className="arc-card flex h-full min-h-[132px] flex-col justify-between p-5">
+          <div key={s.label} className="arc-card flex h-full min-h-[120px] flex-col justify-between p-4 sm:min-h-[132px] sm:p-5">
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold uppercase leading-none tracking-wide text-ink-low">{s.label}</p>
               <span className="pill pill-applied leading-none">↑ {s.delta != null ? Math.abs(s.delta) + '%' : 'live'}</span>
             </div>
-            <p className="font-display text-[40px] font-extrabold leading-none tabular-nums text-ink-hi">{s.value}</p>
+            <p className="kpi-num font-display text-[40px] font-extrabold leading-none tabular-nums text-ink-hi">{s.value}</p>
             <p className="text-[11px] leading-none text-ink-low">{s.sub}</p>
           </div>
         ))}

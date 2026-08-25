@@ -40,7 +40,7 @@ export default function PortalHome() {
     <div className="space-y-6">
       <div className="rise">
         <p className="text-[12px] leading-none text-ink-low">{profile.program} · {profile.department} · {profile.roll_no} · CGPA {profile.cgpa.toFixed(2)}</p>
-        <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">
+        <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">
           Welcome back, {profile.name.split(' ')[0]}
         </h1>
         <div className="mt-3 flex items-center gap-2">
@@ -50,11 +50,11 @@ export default function PortalHome() {
       </div>
 
       {/* KPI row */}
-      <div className="rise rise-d1 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="rise rise-d1 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {CARDS.map((c) => (
-          <div key={c.label} className="arc-card flex h-full min-h-[110px] flex-col justify-between p-5">
+          <div key={c.label} className="arc-card flex h-full min-h-[100px] flex-col justify-between p-4 sm:min-h-[110px] sm:p-5">
             <p className="text-[11px] font-bold uppercase leading-none tracking-wide text-ink-low">{c.label}</p>
-            <p className="font-display text-[36px] font-extrabold leading-none tabular-nums text-ink-hi">{c.value}</p>
+            <p className="kpi-num font-display text-[36px] font-extrabold leading-none tabular-nums text-ink-hi">{c.value}</p>
           </div>
         ))}
       </div>

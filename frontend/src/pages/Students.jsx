@@ -98,7 +98,7 @@ export default function Students() {
       <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
         <div>
           <p className="text-[12px] leading-none text-ink-low">{students.length} enrolled</p>
-          <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Students</h1>
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Students</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <a href={api.exportUrl('students')} className="btn-ghost">Export CSV</a>
@@ -185,7 +185,34 @@ export default function Students() {
             </div>
           </div>
 
-          <div className="overflow-x-auto px-5 pb-5">
+          {/* Mobile card list */}
+          <div className="mobile-list flex md:hidden">
+            {students.map((s) => (
+              <div key={s.id} className="mobile-list-card">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-semibold text-ink-hi">{s.name}</p>
+                    <p className="mt-0.5 text-[12px] tabular-nums text-ink-mid">{s.roll_no}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-ink-low">{s.email}</p>
+                  </div>
+                  <StatusPill status={s.status} />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mid">
+                  <span>{s.department} · {s.program}</span>
+                  <span className="tabular-nums">CGPA {s.cgpa.toFixed(2)}</span>
+                  <span className="tabular-nums">Grad {s.graduation_year}</span>
+                </div>
+                <div className="actions">
+                  <button type="button" onClick={() => openEdit(s)} className="rounded-full border border-hairline px-3 py-1.5 text-[11px] text-ink-mid active:scale-[0.98]">Edit</button>
+                  <button type="button" onClick={() => handleReset(s)} className="rounded-full border border-hairline px-3 py-1.5 text-[11px] text-ink-mid active:scale-[0.98]">Reset pwd</button>
+                  <button type="button" onClick={() => handleDelete(s)} className="rounded-full border border-coral/25 px-3 py-1.5 text-[11px] text-coral active:scale-[0.98]">Remove</button>
+                </div>
+              </div>
+            ))}
+            {!students.length && <p className="py-8 text-center text-sm text-ink-low">No students match.</p>}
+          </div>
+
+          <div className="hidden overflow-x-auto px-5 pb-5 md:block">
             <table className="w-full text-sm">
               <colgroup>
                 <col className="w-[14%]" />

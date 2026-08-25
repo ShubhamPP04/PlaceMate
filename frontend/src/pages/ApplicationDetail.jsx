@@ -60,7 +60,7 @@ export default function ApplicationDetail() {
             <button onClick={() => navigate('/applications')} className="text-ink-low transition-colors hover:text-ink-hi">Applications</button>
             <span className="mx-1.5">/</span>#{app.id}
           </p>
-          <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">{app.student_name}</h1>
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">{app.student_name}</h1>
           <p className="mt-1.5 text-sm text-ink-mid">
             {app.roll_no} · {app.department}
             <span className="mx-1.5 text-ink-low">·</span>{app.company_name}

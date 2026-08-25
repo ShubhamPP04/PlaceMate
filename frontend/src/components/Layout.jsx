@@ -5,19 +5,19 @@ import Logo from './Logo'
 import { ThemeToggle } from './Theme.jsx'
 
 const ADMIN_RAIL = [
-  { to: '/dashboard', label: 'Overview', dots: true },
-  { to: '/students', label: 'Students' },
-  { to: '/companies', label: 'Companies' },
-  { to: '/drives', label: 'Drives' },
-  { to: '/applications', label: 'Applications' },
-  { to: '/notices', label: 'Notices' },
+  { to: '/dashboard', label: 'Home', short: 'Home', dots: true },
+  { to: '/students', label: 'Students', short: 'Students' },
+  { to: '/companies', label: 'Companies', short: 'Firms' },
+  { to: '/drives', label: 'Drives', short: 'Drives' },
+  { to: '/applications', label: 'Applications', short: 'Apps' },
+  { to: '/notices', label: 'Notices', short: 'News' },
 ]
 
 const STUDENT_RAIL = [
-  { to: '/portal', label: 'Home', dots: true },
-  { to: '/portal/drives', label: 'Drives' },
-  { to: '/portal/applications', label: 'Applications' },
-  { to: '/portal/profile', label: 'Profile' },
+  { to: '/portal', label: 'Home', short: 'Home', dots: true },
+  { to: '/portal/drives', label: 'Drives', short: 'Drives' },
+  { to: '/portal/applications', label: 'Applications', short: 'Apps' },
+  { to: '/portal/profile', label: 'Profile', short: 'You' },
 ]
 
 const RAIL_ICONS = {
@@ -30,6 +30,21 @@ const RAIL_ICONS = {
   '/portal/drives': 'M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z',
   '/portal/applications': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6',
   '/portal/profile': 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+}
+
+function RailIcon({ to, dots }) {
+  if (dots) {
+    return (
+      <span className="grid grid-cols-2 gap-[3px]">
+        {[0, 1, 2, 3].map((i) => <span key={i} className="h-[5px] w-[5px] rounded-full bg-current" />)}
+      </span>
+    )
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[19px] w-[19px]">
+      <path d={RAIL_ICONS[to]} />
+    </svg>
+  )
 }
 
 function StudentRecent() {
@@ -50,7 +65,7 @@ function StudentRecent() {
         <button
           key={a.id}
           type="button"
-          onClick={() => navigate(`/portal/applications`)}
+          onClick={() => navigate('/portal/applications')}
           className={'msg-row w-full text-left' + (location.pathname === '/portal/applications' ? ' active' : '')}
         >
           <Logo name={a.company_name} size={36} />
@@ -70,9 +85,8 @@ export default function Layout({ user, onLogout }) {
   const [recent, setRecent] = useState([])
   const isStudent = user?.role === 'student'
   const rail = isStudent ? STUDENT_RAIL : ADMIN_RAIL
+  const home = isStudent ? '/portal' : '/dashboard'
 
-  // Build the "Recent" list from real drives + applications, newest first.
-  // Admin-only: the sidebar feed crosses admin APIs.
   useEffect(() => {
     if (isStudent) return
     let cancelled = false
@@ -101,19 +115,25 @@ export default function Layout({ user, onLogout }) {
     return () => { cancelled = true }
   }, [isStudent])
 
+  // Scroll main pane to top on route change (mobile + desktop).
+  useEffect(() => {
+    const el = document.getElementById('pm-main')
+    if (el) el.scrollTop = 0
+  }, [location.pathname])
+
   async function handleLogout() {
     await onLogout()
     navigate('/login')
   }
 
   return (
-    <div className="relative min-h-[100dvh] py-6 sm:py-8">
+    <div className="relative min-h-[100dvh] md:py-6 md:sm:py-8">
       <div className="stage-stripes" aria-hidden="true" />
 
-      <div className="arc-shell grid h-[calc(100dvh-64px)] grid-cols-[64px_280px_1fr] overflow-hidden max-lg:grid-cols-[64px_1fr]">
-        {/* ── icon rail ── */}
-        <aside className="rail h-full">
-          <NavLink to={isStudent ? '/portal' : '/dashboard'} className="rail-btn !h-auto !w-auto bg-transparent shadow-none">
+      <div className="arc-shell mobile-shell grid h-[100dvh] grid-cols-1 overflow-hidden md:h-[calc(100dvh-64px)] md:grid-cols-[64px_1fr] lg:grid-cols-[64px_280px_1fr]">
+        {/* ── desktop icon rail ── */}
+        <aside className="rail hidden h-full md:flex">
+          <NavLink to={home} className="rail-btn !h-auto !w-auto bg-transparent shadow-none">
             <span className="grid h-[42px] w-[42px] place-items-center rounded-full bg-black text-[14px] font-black tracking-tighter text-lime">
               PM
             </span>
@@ -124,25 +144,18 @@ export default function Layout({ user, onLogout }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === home}
                 title={item.label}
                 className={({ isActive }) => 'rail-btn' + (isActive ? ' active' : '')}
               >
-                {item.dots ? (
-                  <span className="grid grid-cols-2 gap-[3px]">
-                    {[0, 1, 2, 3].map((i) => <span key={i} className="h-[5px] w-[5px] rounded-full bg-current" />)}
-                  </span>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[19px] w-[19px]">
-                    <path d={RAIL_ICONS[item.to]} />
-                  </svg>
-                )}
+                <RailIcon to={item.to} dots={item.dots} />
               </NavLink>
             ))}
           </div>
 
           <div className="mt-auto flex flex-col gap-2">
             <ThemeToggle className="rail-btn !h-[42px] !w-[42px] !rounded-full border !border-hairline !bg-transparent" />
-            <button onClick={handleLogout} title="Logout" className="rail-btn exit">
+            <button onClick={handleLogout} title="Logout" className="rail-btn exit" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]">
                 <path d="M15 12H3M7 8l-4 4 4 4M13 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" />
               </svg>
@@ -150,7 +163,7 @@ export default function Layout({ user, onLogout }) {
           </div>
         </aside>
 
-        {/* ── messages sidebar ── */}
+        {/* ── desktop messages sidebar ── */}
         <aside className="hidden flex-col border-r border-hairline bg-panel lg:flex">
           <div className="flex-1 overflow-y-auto p-5">
             <p className="text-sm text-ink-low">Welcome to</p>
@@ -204,18 +217,61 @@ export default function Layout({ user, onLogout }) {
               </span>
               <div className="min-w-0 flex-1 leading-tight">
                 <p className="truncate text-[12px] font-semibold leading-none text-ink-hi">{user?.name}</p>
-                <p className="truncate text-[10px] capitalize leading-none mt-1 text-ink-low">{user?.role}</p>
+                <p className="mt-1 truncate text-[10px] capitalize leading-none text-ink-low">{user?.role}</p>
               </div>
             </div>
           </div>
         </aside>
 
-        {/* ── main content ── */}
-        <main className="min-w-0 overflow-y-auto bg-panel-2/60 p-5 sm:p-7">
-          <Outlet />
-        </main>
+        {/* ── main column (mobile top bar + scroll + bottom tabs) ── */}
+        <div className="flex min-h-0 min-w-0 flex-col bg-panel-2/60">
+          <header className="mobile-topbar md:hidden">
+            <NavLink to={home} className="flex min-w-0 items-center gap-2.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black text-[12px] font-black tracking-tighter text-lime">
+                PM
+              </span>
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-[15px] font-extrabold tracking-tight text-ink-hi">PlaceMate</p>
+                <p className="truncate text-[10px] capitalize text-ink-low">{user?.name}</p>
+              </div>
+            </NavLink>
+            <div className="flex items-center gap-1.5">
+              <ThemeToggle className="rail-btn !h-10 !w-10 !rounded-full border !border-hairline !bg-transparent" />
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Logout"
+                className="rail-btn exit !h-10 !w-10"
+                aria-label="Log out"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]">
+                  <path d="M15 12H3M7 8l-4 4 4 4M13 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" />
+                </svg>
+              </button>
+            </div>
+          </header>
+
+          <main id="pm-main" className="mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-4 sm:p-5 md:p-7">
+            <Outlet />
+          </main>
+
+          <nav className="mobile-tabbar md:hidden" aria-label="Primary">
+            {rail.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === home}
+                className={({ isActive }) => 'mobile-tab' + (isActive ? ' active' : '')}
+              >
+                <span className="mobile-tab-icon">
+                  <RailIcon to={item.to} dots={item.dots} />
+                </span>
+                <span className="mobile-tab-label">{item.short || item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </div>
       </div>
     </div>
   )
 }
-

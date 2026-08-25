@@ -37,7 +37,7 @@ export default function Notices() {
       <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
         <div>
           <p className="text-[12px] leading-none text-ink-low">{notices.length} announcements</p>
-          <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Notices</h1>
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Notices</h1>
         </div>
         {showForm
           ? <GhostButton onClick={() => setShowForm(false)}>Close</GhostButton>

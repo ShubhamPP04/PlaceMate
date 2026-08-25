@@ -51,7 +51,7 @@ export default function Companies() {
       <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
         <div>
           <p className="text-[12px] leading-none text-ink-low">{companies.length} partners</p>
-          <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Companies</h1>
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Companies</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <a href={api.exportUrl('companies')} className="btn-ghost">Export CSV</a>
@@ -95,7 +95,34 @@ export default function Companies() {
               <GhostButton className="justify-self-start" onClick={() => load()}>Apply</GhostButton>
             </div>
           </div>
-          <div className="overflow-x-auto px-5 pb-5">
+          <div className="mobile-list flex md:hidden">
+            {companies.map((c) => (
+              <div key={c.id} className="mobile-list-card">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-semibold text-ink-hi">{c.name}</p>
+                    <p className="mt-0.5 text-[12px] text-ink-mid">{c.industry || '—'}</p>
+                    {c.website && (
+                      <a href={c.website} target="_blank" rel="noopener noreferrer" className="mt-1 block truncate text-[11px] text-green">
+                        {c.website.replace(/^https?:\/\//, '')}
+                      </a>
+                    )}
+                    {c.hr_email && <p className="mt-0.5 truncate text-[11px] text-ink-low">{c.hr_email}</p>}
+                  </div>
+                  <span className="shrink-0 rounded-full border border-hairline px-2.5 py-1 text-[11px] tabular-nums text-ink-mid">
+                    {c.drives_count} drives
+                  </span>
+                </div>
+                <div className="actions">
+                  <button type="button" onClick={() => openEdit(c)} className="rounded-full border border-hairline px-3 py-1.5 text-[11px] text-ink-mid active:scale-[0.98]">Edit</button>
+                  <button type="button" onClick={() => handleDelete(c)} className="rounded-full border border-coral/25 px-3 py-1.5 text-[11px] text-coral active:scale-[0.98]">Remove</button>
+                </div>
+              </div>
+            ))}
+            {!companies.length && <p className="py-8 text-center text-sm text-ink-low">No companies match.</p>}
+          </div>
+
+          <div className="hidden overflow-x-auto px-5 pb-5 md:block">
             <table className="w-full text-sm">
               <colgroup>
                 <col className="w-[18%]" />

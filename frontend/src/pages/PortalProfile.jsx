@@ -43,7 +43,7 @@ export default function PortalProfile() {
     <div className="space-y-6">
       <div className="rise">
         <p className="text-[12px] leading-none text-ink-low">{profile.roll_no} · {profile.department}</p>
-        <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Profile</h1>
+        <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Profile</h1>
       </div>
 
       {message && <Alert kind={message.kind} onClose={() => setMessage(null)}>{message.text}</Alert>}

@@ -26,10 +26,12 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div className="relative grid min-h-[100dvh] place-items-center px-4 py-10"><div className="stage-stripes" aria-hidden="true" />
+    <div className="relative grid min-h-[100dvh] place-items-center px-4 py-10" style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top))', paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))' }}>
+      <div className="stage-stripes" aria-hidden="true" />
 
-
-      <div className="absolute right-5 top-5 z-10"><ThemeToggle /></div>
+      <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5" style={{ top: 'max(1rem, env(safe-area-inset-top))' }}>
+        <ThemeToggle />
+      </div>
 
       <div className="w-full max-w-md">
         {/* editorial split: wordmark block above the bezel card */}

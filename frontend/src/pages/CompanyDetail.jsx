@@ -43,7 +43,7 @@ export default function CompanyDetail() {
               <button onClick={() => navigate('/companies')} className="text-ink-low transition-colors hover:text-ink-hi">Companies</button>
               <span className="mx-1.5">/</span>{company.name}
             </p>
-            <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">{company.name}</h1>
+            <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">{company.name}</h1>
             <p className="mt-1.5 text-sm text-ink-mid">{company.industry || '—'}</p>
           </div>
         </div>

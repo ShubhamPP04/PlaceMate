@@ -39,7 +39,7 @@ export default function DriveDetail() {
               <span className="mx-1.5">/</span>
               {drive.title}
             </p>
-            <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">{drive.title}</h1>
+            <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">{drive.title}</h1>
             <p className="mt-1.5 text-sm text-ink-mid">
               <button onClick={() => navigate(`/companies/${drive.company_id}`)} className="text-green transition-opacity hover:opacity-70">{drive.company_name}</button>
               <span className="mx-1.5 text-ink-low">·</span>{drive.role}
@@ -83,9 +83,9 @@ export default function DriveDetail() {
           </div>
         )}
 
-        <div className="mt-4 flex items-center justify-between text-[11px] text-ink-low">
+        <div className="mt-4 flex flex-col gap-2 text-[11px] text-ink-low sm:flex-row sm:items-center sm:justify-between">
           <span>Apply by <span className={drive.is_accepting && drive.application_deadline ? 'text-ink-hi' : 'text-coral'}>{fmtDate(drive.application_deadline)}</span></span>
-          <span className={`pill ${drive.is_accepting ? 'pill-selected' : 'pill-rejected'}`}>{drive.is_accepting ? 'Accepting applications' : 'Not accepting'}</span>
+          <span className={`pill self-start ${drive.is_accepting ? 'pill-selected' : 'pill-rejected'}`}>{drive.is_accepting ? 'Accepting applications' : 'Not accepting'}</span>
         </div>
       </div>
 

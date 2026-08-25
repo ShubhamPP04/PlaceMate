@@ -11,7 +11,7 @@ export default function PortalApplications() {
     <div className="space-y-6">
       <div className="rise">
         <p className="text-[12px] leading-none text-ink-low">{apps.length} applications</p>
-        <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">My applications</h1>
+        <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">My applications</h1>
       </div>
 
       <div className="rise rise-d1 grid gap-3">

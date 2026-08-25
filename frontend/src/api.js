@@ -1,7 +1,10 @@
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
+// Local Vite proxies /api → Flask. On Vercel set VITE_API_URL to the API origin.
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+
 async function request(path, options = {}) {
-  const res = await fetch(`/api${path}`, { credentials: 'include', ...options })
+  const res = await fetch(`${API_BASE}/api${path}`, { credentials: 'include', ...options })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     throw new Error(data.error || `Request failed (${res.status})`)
@@ -49,7 +52,7 @@ export const api = {
   addNotice: (body) => request('/admin/notices', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   deleteNotice: (id) => request(`/admin/notices/${id}`, { method: 'DELETE' }),
 
-  exportUrl: (entity) => `/api/admin/export/${entity}`,
+  exportUrl: (entity) => `${API_BASE}/api/admin/export/${entity}`,
 
   portal: {
     summary: () => request('/portal/summary'),

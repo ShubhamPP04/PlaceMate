@@ -32,7 +32,7 @@ export default function Applications() {
       <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
         <div>
           <p className="text-[12px] leading-none text-ink-low">{applications.length} total</p>
-          <h1 className="font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Applications</h1>
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Applications</h1>
         </div>
         <a href={api.exportUrl('applications')} className="btn-ghost">Export CSV</a>
       </div>
@@ -60,7 +60,41 @@ export default function Applications() {
               <GhostButton className="justify-self-start md:justify-self-stretch" onClick={() => load()}>Apply</GhostButton>
             </div>
           </div>
-          <div className="overflow-x-auto px-5 pt-5">
+          <div className="mobile-list flex md:hidden">
+            {applications.map((a) => (
+              <div key={a.id} className="mobile-list-card">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-semibold text-ink-hi">{a.student_name}</p>
+                    <p className="mt-0.5 text-[11px] text-ink-low">{a.roll_no} · {a.department}</p>
+                    <p className="mt-1 truncate text-[13px] text-ink-mid">{a.company_name} · {a.drive_role}</p>
+                    <p className="mt-0.5 text-[11px] tabular-nums text-ink-low">{a.applied_at}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <StatusPill status={a.status} />
+                    {a.eligible ? <span className="pill pill-selected">Eligible</span> : <EligibilityPill reason={a.ineligible_reason} />}
+                  </div>
+                </div>
+                <form
+                  className="actions items-center"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    updateStatus(a, new FormData(e.target).get('status'))
+                  }}
+                >
+                  <div className="field-shell min-w-0 flex-1">
+                    <select name="status" defaultValue={a.status} className="field-input !py-2 !text-xs">
+                      {STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
+                    </select>
+                  </div>
+                  <GhostButton type="submit" className="!px-4 !py-2 !text-xs">Save</GhostButton>
+                </form>
+              </div>
+            ))}
+            {!applications.length && <p className="py-8 text-center text-sm text-ink-low">No applications match.</p>}
+          </div>
+
+          <div className="hidden overflow-x-auto px-5 pt-5 md:block">
             <table className="w-full text-sm">
               <colgroup>
                 <col className="w-[20%]" />

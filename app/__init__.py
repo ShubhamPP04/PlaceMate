@@ -21,18 +21,19 @@ def _load_dotenv():
             continue
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip().strip("'").strip('"')
-        os.environ.setdefault(key, value)
+        # Treat missing or empty env values as unset so .env can fill them.
+        if key and (key not in os.environ or not os.environ.get(key)):
+            os.environ[key] = value
 
 
 def create_app():
     _load_dotenv()
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or "dev-secret-change-me"
     # Prefer DATABASE_URL (Railway/Neon/Vercel). Convert postgres:// → postgresql://
     # for SQLAlchemy when hosts inject the short Heroku-style scheme.
-    database_url = os.environ.get(
-        "DATABASE_URL",
-        "postgresql+psycopg://jasneet@localhost:5432/placement_db",
+    database_url = os.environ.get("DATABASE_URL") or (
+        "postgresql+psycopg://jasneet@localhost:5432/placement_db"
     )
     # Normalize common provider schemes for SQLAlchemy + psycopg3.
     if database_url.startswith("postgres://"):

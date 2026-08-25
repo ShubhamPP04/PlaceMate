@@ -125,7 +125,6 @@ body {
 
 /* ── mobile-native shell (phone / small tablet) ── */
 .mobile-topbar {
-  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -140,7 +139,6 @@ body {
 }
 
 .mobile-tabbar {
-  display: flex;
   align-items: stretch;
   justify-content: space-around;
   gap: 0.15rem;
@@ -230,7 +228,6 @@ body {
 
 /* ── icon rail ── */
 .rail {
-  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;

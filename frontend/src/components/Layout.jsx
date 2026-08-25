@@ -132,7 +132,7 @@ export default function Layout({ user, onLogout }) {
 
       <div className="arc-shell mobile-shell grid h-[100dvh] grid-cols-1 overflow-hidden md:h-[calc(100dvh-64px)] md:grid-cols-[64px_1fr] lg:grid-cols-[64px_280px_1fr]">
         {/* ── desktop icon rail ── */}
-        <aside className="rail hidden h-full md:flex">
+        <aside className="rail hidden h-full md:!flex">
           <NavLink to={home} className="rail-btn !h-auto !w-auto bg-transparent shadow-none">
             <span className="grid h-[42px] w-[42px] place-items-center rounded-full bg-black text-[14px] font-black tracking-tighter text-lime">
               PM
@@ -225,7 +225,7 @@ export default function Layout({ user, onLogout }) {
 
         {/* ── main column (mobile top bar + scroll + bottom tabs) ── */}
         <div className="flex min-h-0 min-w-0 flex-col bg-panel-2/60">
-          <header className="mobile-topbar md:hidden">
+          <header className="mobile-topbar flex md:!hidden">
             <NavLink to={home} className="flex min-w-0 items-center gap-2.5">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black text-[12px] font-black tracking-tighter text-lime">
                 PM
@@ -255,7 +255,7 @@ export default function Layout({ user, onLogout }) {
             <Outlet />
           </main>
 
-          <nav className="mobile-tabbar md:hidden" aria-label="Primary">
+          <nav className="mobile-tabbar flex md:!hidden" aria-label="Primary">
             {rail.map((item) => (
               <NavLink
                 key={item.to}

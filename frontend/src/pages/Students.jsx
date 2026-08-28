@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Alert, Card, Field, GhostButton, PrimaryButton, StatusPill, inputClass } from '../components/ui'
 
+const PROGRAMS = ['B.Tech']
+
 const EMPTY = {
   roll_no: '', name: '', email: '', phone: '',
   program: 'B.Tech', department: '', cgpa: '', graduation_year: 2026, skills: '',
@@ -12,7 +14,7 @@ const toSkills = (s) => s.split(',').map((x) => x.trim()).filter(Boolean)
 export default function Students() {
   const [students, setStudents] = useState([])
   const [departments, setDepartments] = useState([])
-  const [programs, setPrograms] = useState(['B.Tech', 'BCA'])
+  const [programs, setPrograms] = useState(PROGRAMS)
   const [filters, setFilters] = useState({ q: '', dept: '', status: '', program: '' })
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null) // student id when editing
@@ -26,7 +28,7 @@ export default function Students() {
     const data = await api.students(params ? `?${params}` : '')
     setStudents(data.students)
     setDepartments(data.departments)
-    setPrograms(data.programs || ['B.Tech', 'BCA'])
+    setPrograms(data.programs?.length ? data.programs : PROGRAMS)
   }, [filters])
 
   useEffect(() => { load(filters) /* eslint-disable-line react-hooks/exhaustive-deps */ }, [])
@@ -114,7 +116,7 @@ export default function Students() {
         <a href={`data:text/plain;charset=utf-8,${encodeURIComponent(TEMPLATE)}`} download="students-template.csv" className="whitespace-nowrap text-[11px] text-ink-low underline decoration-dotted underline-offset-2 hover:text-ink-hi">
           Download CSV template
         </a>
-        <span className="text-[11px] text-ink-low">· include a <span className="text-ink-mid">program</span> column (B.Tech / BCA)</span>
+        <span className="text-[11px] text-ink-low">· include a <span className="text-ink-mid">program</span> column (B.Tech)</span>
       </div>
 
       {message && <Alert kind={message.kind} onClose={() => setMessage(null)}>{message.text}</Alert>}
@@ -134,10 +136,10 @@ export default function Students() {
               <Field label="Phone"><input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
               <Field label="Program">
                 <select className={inputClass} value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })}>
-                  {['B.Tech', 'BCA'].map((p) => <option key={p} value={p}>{p}</option>)}
+                  {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </Field>
-              <Field label="Department *"><input className={inputClass} placeholder={form.program === 'BCA' ? 'BCA' : 'CSE'} value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} required /></Field>
+              <Field label="Department *"><input className={inputClass} placeholder="CSE" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} required /></Field>
               <Field label="CGPA"><input type="number" step="0.01" min="0" max="10" className={inputClass} value={form.cgpa} onChange={(e) => setForm({ ...form, cgpa: e.target.value })} /></Field>
               <Field label="Grad Year"><input type="number" className={inputClass} value={form.graduation_year} onChange={(e) => setForm({ ...form, graduation_year: e.target.value })} /></Field>
               <Field label="Skills (comma-sep)"><input className={inputClass} placeholder="Python, SQL, React" value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} /></Field>

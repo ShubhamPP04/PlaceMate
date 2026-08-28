@@ -16,7 +16,6 @@ SKILLS = {
     "EEE": ["Power Systems", "MATLAB", "AutoCAD"],
     "MECH": ["AutoCAD", "SolidWorks", "Thermodynamics"],
     "CIVIL": ["AutoCAD", "STAAD Pro", "Surveying"],
-    "BCA": ["Python", "PHP", "MySQL", "Web Development", "Excel", "Tally"],
 }
 COMPANIES = [
     ("TCS", "IT Services"), ("Infosys", "IT Services"), ("Wipro", "IT Services"),
@@ -24,13 +23,13 @@ COMPANIES = [
     ("Bosch", "Automotive"), ("L&T", "Engineering"),
 ]
 DRIVES = [
-    ("Software Engineer", 8.5, 7.0, ["CSE", "IT"], "B.Tech, BCA"),
-    ("Systems Engineer", 4.5, 6.0, ["CSE", "IT", "ECE"], "B.Tech, BCA"),
-    ("Data Analyst", 6.0, 6.5, ["CSE", "IT", "ECE", "EEE"], "B.Tech, BCA"),
+    ("Software Engineer", 8.5, 7.0, ["CSE", "IT"], "B.Tech"),
+    ("Systems Engineer", 4.5, 6.0, ["CSE", "IT", "ECE"], "B.Tech"),
+    ("Data Analyst", 6.0, 6.5, ["CSE", "IT", "ECE", "EEE"], "B.Tech"),
     ("Design Engineer", 5.0, 6.0, ["MECH", "CIVIL", "EEE"], "B.Tech"),
     ("Embedded Engineer", 6.5, 6.5, ["ECE", "EEE"], "B.Tech"),
-    ("Web Developer", 4.0, 6.0, ["BCA"], "BCA"),
-    ("IT Support Associate", 3.5, 5.5, ["BCA", "IT"], "B.Tech, BCA"),
+    ("Web Developer", 4.0, 6.0, ["CSE", "IT"], "B.Tech"),
+    ("IT Support Associate", 3.5, 5.5, ["IT", "ECE"], "B.Tech"),
 ]
 
 FIRST = ["Aarav", "Diya", "Ishaan", "Meera", "Rohan", "Sneha", "Vikram", "Ananya",
@@ -85,23 +84,6 @@ with app.app_context():
                 cgpa=round(random.uniform(5.5, 9.6), 2),
                 graduation_year=2026,
                 skills=", ".join(random.sample(SKILLS[dept], k=min(3, len(SKILLS[dept])))),
-                status="unplaced",
-            )
-            db.session.add(s)
-            students.append(s)
-        # BCA batch
-        for i in range(1, 13):
-            first, last = random.choice(FIRST), random.choice(LAST)
-            s = Student(
-                roll_no=f"23BCA{i:03d}",
-                name=f"{first} {last}",
-                email=f"{first.lower()}.{last.lower()}.bca{i}@college.edu",
-                phone=f"9{random.randint(100000000, 999999999)}",
-                program="BCA",
-                department="BCA",
-                cgpa=round(random.uniform(6.0, 9.2), 2),
-                graduation_year=2026,
-                skills=", ".join(random.sample(SKILLS["BCA"], k=3)),
                 status="unplaced",
             )
             db.session.add(s)

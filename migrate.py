@@ -5,9 +5,10 @@ schema; this script only patches older databases and backfills demo data.
 
 1. ALTER drives → add application_deadline (if missing)
 2. ALTER students.program / drives.eligible_programs (if missing)
-3. Stamp deadlines on drives that don't have one
-4. Backfill a login User (role=student, password = roll_no lowercase)
-5. Seed sample notices / BCA students when empty
+3. Purge the retired BCA program (rows, drive eligibility, enum label)
+4. Stamp deadlines on drives that don't have one
+5. Backfill a login User (role=student, password = roll_no lowercase)
+6. Seed sample notices when empty
 
 Run: ./venv/bin/python migrate.py
 """
@@ -47,12 +48,6 @@ DEADLINES = [
     ("Freshworks Campus Drive 2026", 14),
 ]
 
-FIRST = ["Aarav", "Diya", "Ishaan", "Meera", "Rohan", "Sneha", "Vikram", "Ananya",
-         "Karthik", "Priya", "Arjun", "Nisha", "Sanjay", "Divya", "Rahul", "Kavya"]
-LAST = ["Sharma", "Patel", "Reddy", "Iyer", "Singh", "Kumar", "Das", "Menon",
-        "Joshi", "Verma", "Nair", "Gupta"]
-
-
 def _column_exists(table: str, column: str) -> bool:
     return bool(db.session.execute(text(
         "SELECT 1 FROM information_schema.columns "
@@ -85,7 +80,7 @@ with app.app_context():
 
     # 1b · program columns (students.program + drives.eligible_programs)
     if not _column_exists("students", "program"):
-        _ensure_enum("student_program", ("B.Tech", "BCA"))
+        _ensure_enum("student_program", ("B.Tech",))
         db.session.execute(text(
             "ALTER TABLE students ADD COLUMN program student_program "
             "NOT NULL DEFAULT 'B.Tech'"
@@ -97,13 +92,74 @@ with app.app_context():
     if not _column_exists("drives", "eligible_programs"):
         db.session.execute(text(
             "ALTER TABLE drives ADD COLUMN eligible_programs "
-            "VARCHAR(100) DEFAULT 'B.Tech, BCA'"
+            "VARCHAR(100) DEFAULT 'B.Tech'"
         ))
         print("Added drives.eligible_programs column.")
     else:
         print("drives.eligible_programs already present.")
 
-    # 2 · demo deadlines for drives without one
+    # 2 · purge the retired BCA program. Must run before anything loads a
+    # Student through the ORM — 'BCA' is no longer a valid Python-side enum
+    # member, so SQLAlchemy raises on both reads and filter binds.
+    bca_students = db.session.execute(text(
+        "SELECT id, user_id FROM students WHERE program::text = 'BCA' OR department = 'BCA'"
+    )).all()
+    if bca_students:
+        student_ids = [row.id for row in bca_students]
+        user_ids = [row.user_id for row in bca_students if row.user_id]
+        db.session.execute(
+            text("DELETE FROM applications WHERE student_id = ANY(:ids)"), {"ids": student_ids}
+        )
+        db.session.execute(text("DELETE FROM students WHERE id = ANY(:ids)"), {"ids": student_ids})
+        if user_ids:
+            db.session.execute(text("DELETE FROM users WHERE id = ANY(:ids)"), {"ids": user_ids})
+        db.session.flush()
+    print(f"Removed {len(bca_students)} BCA student(s).")
+
+    # Drives only ever open to BCA have no audience left — drop them.
+    dropped_drives = 0
+    for drive in Drive.query.all():
+        if drive.eligible_program_list == ["BCA"] or drive.eligible_dept_list == ["BCA"]:
+            db.session.execute(
+                text("DELETE FROM applications WHERE drive_id = :id"), {"id": drive.id}
+            )
+            db.session.delete(drive)
+            dropped_drives += 1
+    db.session.flush()
+    print(f"Removed {dropped_drives} BCA-only drive(s).")
+
+    retagged = 0
+    for drive in Drive.query.all():
+        programs = [p for p in drive.eligible_program_list if p != "BCA"]
+        depts = [d for d in drive.eligible_dept_list if d != "BCA"]
+        if programs != drive.eligible_program_list or depts != drive.eligible_dept_list:
+            drive.eligible_programs = ", ".join(programs) or "B.Tech"
+            drive.eligible_departments = ", ".join(depts)
+            retagged += 1
+    print(f"Stripped BCA eligibility from {retagged} drive(s).")
+
+    # Postgres has no ALTER TYPE ... DROP VALUE, so rebuild the type in place.
+    has_bca_label = db.session.execute(text(
+        "SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid "
+        "WHERE t.typname = 'student_program' AND e.enumlabel = 'BCA'"
+    )).scalar()
+    if has_bca_label:
+        db.session.execute(text("ALTER TABLE students ALTER COLUMN program DROP DEFAULT"))
+        db.session.execute(text("ALTER TYPE student_program RENAME TO student_program_old"))
+        db.session.execute(text("CREATE TYPE student_program AS ENUM ('B.Tech')"))
+        db.session.execute(text(
+            "ALTER TABLE students ALTER COLUMN program TYPE student_program "
+            "USING program::text::student_program"
+        ))
+        db.session.execute(text(
+            "ALTER TABLE students ALTER COLUMN program SET DEFAULT 'B.Tech'"
+        ))
+        db.session.execute(text("DROP TYPE student_program_old"))
+        print("Dropped 'BCA' from the student_program enum.")
+    else:
+        print("student_program enum already B.Tech-only.")
+
+    # 3 · demo deadlines for drives without one
     today = date.today()
     stamped = 0
     titles = dict(DEADLINES)
@@ -115,7 +171,7 @@ with app.app_context():
         stamped += 1
     print(f"Stamped deadlines on {stamped} drive(s).")
 
-    # 3 · student logins
+    # 4 · student logins
     created = 0
     for student in Student.query.all():
         if student.user_id:
@@ -132,63 +188,13 @@ with app.app_context():
         created += 1
     print(f"Created {created} student login(s).")
 
-    # 4 · sample notices (only when none exist yet)
+    # 5 · sample notices (only when none exist yet)
     if Notice.query.count() == 0:
         for title, body, audience in SAMPLE_NOTICES:
             db.session.add(Notice(title=title, body=body, audience=audience))
         print("Seeded 3 sample notices.")
     else:
         print("Notices already present.")
-
-    # 5 · BCA demo students with logins (only when none exist yet)
-    BCA_SKILLS = ["Python", "PHP", "MySQL", "Web Development", "Excel", "Tally"]
-    if Student.query.filter_by(program="BCA").count() == 0:
-        for i in range(1, 13):
-            first, last = random.choice(FIRST), random.choice(LAST)
-            roll = f"23BCA{i:03d}"
-            student = Student(
-                roll_no=roll,
-                name=f"{first} {last}",
-                email=f"{first.lower()}.{last.lower()}.bca{i}@college.edu",
-                phone=f"9{random.randint(100000000, 999999999)}",
-                program="BCA",
-                department="BCA",
-                cgpa=round(random.uniform(6.0, 9.2), 2),
-                graduation_year=2026,
-                skills=", ".join(random.sample(BCA_SKILLS, k=3)),
-                status="unplaced",
-            )
-            user = User(
-                email=student.email,
-                password_hash=generate_password_hash(roll.lower()),
-                name=student.name,
-                role="student",
-            )
-            db.session.add(user)
-            db.session.flush()
-            student.user_id = user.id
-            db.session.add(student)
-        print("Seeded 12 BCA students with logins.")
-    else:
-        print("BCA students already present.")
-
-    # 6 · open SE-style drives to BCA (program + department so BCA students pass both checks)
-    bca_drives = Drive.query.filter(
-        Drive.role.in_(["Software Engineer", "Systems Engineer"])
-    ).all()
-    opened = 0
-    for drive in bca_drives:
-        changed = False
-        if drive.eligible_programs in (None, "B.Tech"):
-            drive.eligible_programs = "B.Tech, BCA"
-            changed = True
-        depts = drive.eligible_dept_list
-        if "BCA" not in depts:
-            drive.eligible_departments = ", ".join(depts + ["BCA"])
-            changed = True
-        if changed:
-            opened += 1
-    print(f"Opened {opened} SE-style drive(s) to BCA (program + department).")
 
     db.session.commit()
     print("Migration complete.")

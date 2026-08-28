@@ -5,7 +5,7 @@ import { Alert, Card, Field, GhostButton, PrimaryButton, inputClass } from '../c
 const EMPTY = {
   company_id: '', title: '', role: '', package_lpa: '',
   min_cgpa: '', drive_date: '', application_deadline: '',
-  eligible_departments: '', eligible_programs: 'B.Tech, BCA',
+  eligible_departments: '', eligible_programs: 'B.Tech',
 }
 
 function fmtDate(s) {
@@ -43,7 +43,7 @@ export default function Drives() {
       package_lpa: d.package_lpa ?? '', min_cgpa: d.min_cgpa ?? '',
       drive_date: d.drive_date || '', application_deadline: d.application_deadline || '',
       eligible_departments: (d.eligible_departments || []).join(', '),
-      eligible_programs: (d.eligible_programs || ['B.Tech', 'BCA']).join(', '),
+      eligible_programs: (d.eligible_programs || ['B.Tech']).join(', '),
     })
     setShowForm(true)
   }
@@ -119,7 +119,7 @@ export default function Drives() {
               </div>
               <div className="md:col-span-2">
                 <Field label="Eligible Programs (comma-sep)">
-                  <input className={inputClass} placeholder="B.Tech, BCA" value={form.eligible_programs} onChange={(e) => setForm({ ...form, eligible_programs: e.target.value })} />
+                  <input className={inputClass} placeholder="B.Tech" value={form.eligible_programs} onChange={(e) => setForm({ ...form, eligible_programs: e.target.value })} />
                 </Field>
               </div>
               <div className="md:col-span-4">

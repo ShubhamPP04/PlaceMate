@@ -105,19 +105,20 @@ All list endpoints accept filters: `?q=`, and status/department/company as appli
 ## Eligibility engine
 
 Every drive carries an optional `application_deadline` **and** an `eligible_programs`
-list (`B.Tech`, `BCA`). A student is **eligible** to apply when: the drive is active
+list (currently `B.Tech` only). A student is **eligible** to apply when: the drive is active
 AND their program is accepted AND they're in an eligible department AND their CGPA
 meets the minimum AND the application deadline hasn't passed. The drive's `is_accepting`
 derives the same way. Eligibility is enforced on the server at apply-time and surfaced
 to both roles (admin sees an "Ineligible" badge + reason on applications; students see
 why a drive isn't open to them).
 
-## Programs (B.Tech & BCA)
+## Programs
 
-Students carry a `program` (B.Tech or BCA); BCA students use department `BCA`. The
-Students page has a program filter and the program shows under the department in the
-table. Drives show green program chips on cards and detail pages, and the create/edit
-form accepts eligible programs. CSV import/export includes the `program` column.
+Students carry a `program`. B.Tech is the only program offered — the field is kept so
+additional programs can be added later without a schema change. The Students page has a
+program filter and the program shows under the department in the table. Drives show green
+program chips on cards and detail pages, and the create/edit form accepts eligible
+programs. CSV import/export includes the `program` column.
 
 ## Dashboard metrics
 

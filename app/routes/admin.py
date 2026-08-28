@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash
 
 from .auth import login_required
 from ..extensions import db
-from ..models import Application, Company, Drive, Notice, Student, User
+from ..models import PROGRAMS, Application, Company, Drive, Notice, Student, User
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -237,7 +237,7 @@ def add_student():
             name=data["name"].strip(),
             email=data["email"].strip().lower(),
             phone=data.get("phone", "").strip() or None,
-            program=data.get("program") if data.get("program") in ("B.Tech", "BCA") else "B.Tech",
+            program=data.get("program") if data.get("program") in PROGRAMS else "B.Tech",
             department=data["department"].strip(),
             cgpa=float(data.get("cgpa") or 0),
             graduation_year=int(data.get("graduation_year") or 2027),
@@ -298,7 +298,7 @@ def update_student(sid):
             student.email = data["email"].strip().lower()
         if "phone" in data:
             student.phone = (data.get("phone") or "").strip() or None
-        if data.get("program") in ("B.Tech", "BCA"):
+        if data.get("program") in PROGRAMS:
             student.program = data["program"]
         if "department" in data:
             student.department = data["department"].strip()
@@ -380,7 +380,7 @@ def import_students():
         student = Student(
             roll_no=roll, name=name, email=email,
             phone=(record.get("phone") or "").strip() or None,
-            program=record.get("program").strip() if record.get("program", "").strip() in ("B.Tech", "BCA") else "B.Tech",
+            program=record.get("program").strip() if record.get("program", "").strip() in PROGRAMS else "B.Tech",
             department=dept, cgpa=cgpa, graduation_year=grad,
             skills=record.get("skills") if record.get("skills") else "",
         )
@@ -528,7 +528,7 @@ def add_drive():
             else data.get("eligible_departments", ""),
             eligible_programs=", ".join(data["eligible_programs"])
             if isinstance(data.get("eligible_programs"), list)
-            else data.get("eligible_programs", "B.Tech, BCA"),
+            else data.get("eligible_programs", "B.Tech"),
             drive_date=date.fromisoformat(data["drive_date"]) if data.get("drive_date") else None,
             application_deadline=date.fromisoformat(data["application_deadline"])
             if data.get("application_deadline") else None,

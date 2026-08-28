@@ -4,6 +4,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from .extensions import db
 
+PROGRAMS = ("B.Tech",)
+
 
 class User(db.Model):
     __tablename__ = "users"
@@ -33,7 +35,7 @@ class Student(db.Model):
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     phone = db.Column(db.String(20))
-    program = db.Column(db.Enum("B.Tech", "BCA", name="student_program"), default="B.Tech", nullable=False, index=True)
+    program = db.Column(db.Enum(*PROGRAMS, name="student_program"), default="B.Tech", nullable=False, index=True)
     department = db.Column(db.String(80), nullable=False, index=True)
     cgpa = db.Column(db.Float, nullable=False, default=0.0)
     graduation_year = db.Column(db.Integer, nullable=False)
@@ -78,7 +80,7 @@ class Drive(db.Model):
     package_lpa = db.Column(db.Float)  # annual CTC in lakhs
     min_cgpa = db.Column(db.Float, default=0.0)
     eligible_departments = db.Column(db.String(300))  # comma-separated
-    eligible_programs = db.Column(db.String(100), default="B.Tech, BCA")  # empty/omitted = all programs
+    eligible_programs = db.Column(db.String(100), default="B.Tech")  # empty/omitted = all programs
     drive_date = db.Column(db.Date)
     application_deadline = db.Column(db.Date, nullable=True)  # open-ended when null
     is_active = db.Column(db.Boolean, default=True, index=True)
@@ -94,7 +96,7 @@ class Drive(db.Model):
     @property
     def eligible_program_list(self):
         raw = [p.strip() for p in (self.eligible_programs or "").split(",") if p.strip()]
-        return raw or ["B.Tech", "BCA"]
+        return raw or list(PROGRAMS)
 
     @property
     def is_accepting(self):

@@ -75,7 +75,7 @@ export default function PortalHome() {
                     <p className="truncate text-[13px] font-semibold text-ink-hi">{u.company_name} · {u.title}</p>
                     <p className="text-[11px] text-ink-low">{u.package_lpa ? `${u.package_lpa.toFixed(1)} LPA` : 'Package TBD'}</p>
                   </div>
-                  <span className="ml-3 shrink-0 text-[11px] text-lime">{fmtDate(u.deadline)}</span>
+                  <span className="ml-3 shrink-0 text-[11px] text-metric">{fmtDate(u.deadline)}</span>
                 </button>
               ))}
             </div>

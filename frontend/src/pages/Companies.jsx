@@ -48,7 +48,7 @@ export default function Companies() {
 
   return (
     <div className="space-y-6">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <p className="text-[12px] leading-none text-ink-low">{companies.length} partners</p>
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Companies</h1>
@@ -123,7 +123,7 @@ export default function Companies() {
           </div>
 
           <div className="hidden overflow-x-auto px-5 pb-5 md:block">
-            <table className="w-full text-sm">
+            <table className="tbl w-full">
               <colgroup>
                 <col className="w-[18%]" />
                 <col className="w-[15%]" />

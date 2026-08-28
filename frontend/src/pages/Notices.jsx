@@ -34,7 +34,7 @@ export default function Notices() {
 
   return (
     <div className="space-y-6">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <p className="text-[12px] leading-none text-ink-low">{notices.length} announcements</p>
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Notices</h1>

@@ -35,10 +35,10 @@ export default function PortalDrives() {
 
   return (
     <div className="space-y-6">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <p className="text-[12px] leading-none text-ink-low">{drives.filter((d) => d.accepting).length} drives accepting applications</p>
-          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Open drives</h1>
+          <p className="text-[12px] leading-none text-ink-low">{drives.filter((d) => d.accepting).length} of {drives.length} accepting applications</p>
+          <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Drives</h1>
         </div>
       </div>
 
@@ -61,7 +61,7 @@ export default function PortalDrives() {
 
                 <div className="mt-4 grid grid-cols-3 rounded-2xl border border-hairline py-4 text-center">
                   <div className="flex flex-col items-center gap-1">
-                    <div className="font-display text-lg font-semibold tabular-nums text-lime">{d.package_lpa ? d.package_lpa.toFixed(1) : '—'}</div>
+                    <div className="font-display text-lg font-semibold tabular-nums text-metric">{d.package_lpa ? d.package_lpa.toFixed(1) : '—'}</div>
                     <div className="text-[9px] uppercase tracking-[0.14em] text-ink-low">LPA</div>
                   </div>
                   <div className="border-x border-hairline">

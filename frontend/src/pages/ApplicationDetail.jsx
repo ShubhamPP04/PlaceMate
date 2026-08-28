@@ -54,7 +54,7 @@ export default function ApplicationDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <p className="text-[12px] leading-none text-ink-low">
             <button onClick={() => navigate('/applications')} className="text-ink-low transition-colors hover:text-ink-hi">Applications</button>

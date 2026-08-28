@@ -96,6 +96,10 @@ def drives():
         _drive_dict_for(student, d, applied.get(d.id))
         for d in Drive.query.order_by(Drive.drive_date).all()
     ]
+    # Drives a student can still act on come first, soonest deadline leading;
+    # closed ones stay visible underneath for reference. is_accepting is a
+    # Python property, so this can't be an ORDER BY.
+    rows.sort(key=lambda r: (not r["accepting"], r["application_deadline"] or "9999-12-31"))
     return jsonify(drives=rows)
 
 

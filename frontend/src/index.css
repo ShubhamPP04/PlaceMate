@@ -1,62 +1,75 @@
 @import "tailwindcss";
 
-/* ── PlaceMate · Arcedia edition ───────────────────────────────────────
-   Dark green stage + vertical glow stripes, floating white dashboard
-   card, icon rail, messages sidebar, neon-lime accent. Light/dark mode. */
+/* ── PlaceMate ─────────────────────────────────────────────────────────
+   Neutral surfaces, quiet chrome, one accent. Colour is reserved for
+   state and data — never for decoration. Light/dark mode.
+
+   --lime is the fixed brand mark colour and only ever sits on black or
+   on the hero fill. Numeric highlights use --metric, which flips per
+   theme so figures stay legible on white. */
 
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
   /* stage */
-  --stage-top: #010f05;
-  --stage-bottom: #07210b;
-  --stripe: rgba(190, 255, 210, 0.07);
-  --stripe-hot: rgba(134, 239, 172, 0.12);
+  --stage-top: #08090a;
+  --stage-bottom: #08090a;
   /* dashboard canvas */
-  --canvas: #0b1f10;
-  --panel: #12291a;
-  --panel-2: #0e2315;
-  --card: #16311f;
-  --hairline: rgba(190, 255, 210, 0.1);
-  --hairline-hover: rgba(190, 255, 210, 0.2);
-  --raise: rgba(190, 255, 210, 0.05);
+  --canvas: #0c0d0f;
+  --panel: #101113;
+  --panel-2: #0a0b0c;
+  --card: #141619;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-hover: rgba(255, 255, 255, 0.17);
+  --raise: rgba(255, 255, 255, 0.045);
   /* ink */
-  --ink-hi: #f2fff5;
-  --ink-mid: #a7c4b0;
-  --ink-low: #7da28b;
+  --ink-hi: #f4f5f7;
+  --ink-mid: #9196a1;
+  --ink-low: #6c7280;
   /* accents */
   --green: #22c55e;
-  --green-soft: rgba(34, 197, 94, 0.14);
+  --green-soft: rgba(34, 197, 94, 0.15);
+  --metric: #d3ef4c;
+  --amber: #d9a13b;
   --lime: #e8ff66;
   --lime-ink: #1a2600;
   --coral: #f87171;
-  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  /* animated stage backdrop — lives behind the shell, never under data */
+  --aurora-1: rgba(34, 197, 94, 0.30);
+  --aurora-2: rgba(132, 204, 22, 0.22);
+  --aurora-3: rgba(16, 185, 129, 0.20);
+  --aurora-blur: 70px;
   --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --stage-top: #d9f7e3;
-  --stage-bottom: #eefbe9;
-  --stripe: rgba(34, 197, 94, 0.05);
-  --stripe-hot: rgba(34, 197, 94, 0.09);
-  --canvas: #f9fafb;
+  --stage-top: #f1f2f4;
+  --stage-bottom: #f1f2f4;
+  --canvas: #ffffff;
   --panel: #ffffff;
-  --panel-2: #f4f7f5;
+  --panel-2: #fafafb;
   --card: #ffffff;
-  --hairline: rgba(0, 0, 0, 0.14);
-  --hairline-hover: rgba(0, 0, 0, 0.26);
-  --raise: rgba(0, 0, 0, 0.055);
-  --ink-hi: #0d1b12;
-  --ink-mid: #5b6b60;
-  --ink-low: #8fa296;
-  --green: #16a34a;
-  --green-soft: rgba(22, 163, 74, 0.12);
+  --hairline: rgba(9, 9, 11, 0.1);
+  --hairline-hover: rgba(9, 9, 11, 0.22);
+  --raise: rgba(9, 9, 11, 0.035);
+  --ink-hi: #0f1013;
+  --ink-mid: #5b6170;
+  --ink-low: #868c99;
+  --green: #15803d;
+  --green-soft: rgba(21, 128, 61, 0.1);
+  --metric: #4d7c0f;
+  --amber: #8a6212;
   --lime: #e2fb3f;
   --lime-ink: #1a2600;
-  --coral: #ef4444;
-  --shadow-card: 0 2px 12px rgba(13, 27, 18, 0.06);
+  --coral: #dc2626;
+  --shadow-card: 0 1px 2px rgba(9, 9, 11, 0.05);
+  --aurora-1: rgba(34, 197, 94, 0.34);
+  --aurora-2: rgba(163, 230, 53, 0.30);
+  --aurora-3: rgba(45, 212, 191, 0.26);
+  --aurora-blur: 60px;
 }
 
 @theme inline {
@@ -71,12 +84,14 @@
   --color-ink-low: var(--ink-low);
   --color-green: var(--green);
   --color-lime: var(--lime);
+  --color-metric: var(--metric);
+  --color-amber: var(--amber);
   --color-coral: var(--coral);
   --font-display: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-html { background: linear-gradient(180deg, var(--stage-top), var(--stage-bottom)); }
+html { background: var(--stage-top); }
 html, body { min-height: 100dvh; }
 
 body {
@@ -94,19 +109,61 @@ body {
 .font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
 ::selection { background: var(--green-soft); color: var(--ink-hi); }
 
-/* ── stage stripes (fixed, behind the floating dashboard) ── */
-.stage-stripes {
+/* ── animated stage backdrop ──
+   Three drifting green blobs behind the shell. Animates transform only, so
+   it stays on the compositor and never repaints the dashboard above it. */
+.stage-aurora {
   position: fixed;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
   pointer-events: none;
-  background:
-    repeating-linear-gradient(90deg,
-      transparent 0 96px,
-      var(--stripe) 96px 136px,
-      transparent 136px 232px,
-      var(--stripe-hot) 232px 244px,
-      transparent 244px 360px);
+}
+.stage-aurora span {
+  position: absolute;
+  display: block;
+  border-radius: 9999px;
+  filter: blur(var(--aurora-blur));
+  will-change: transform;
+}
+.stage-aurora span:nth-child(1) {
+  width: 46vw;
+  height: 46vw;
+  top: -14vw;
+  left: -30vw;
+  background: var(--aurora-1);
+  animation: aurora-sweep-a 22s ease-in-out infinite alternate;
+}
+.stage-aurora span:nth-child(2) {
+  width: 38vw;
+  height: 38vw;
+  bottom: -16vw;
+  left: 70vw;
+  background: var(--aurora-2);
+  animation: aurora-sweep-b 28s ease-in-out infinite alternate;
+}
+.stage-aurora span:nth-child(3) {
+  width: 32vw;
+  height: 32vw;
+  top: 30%;
+  left: 20vw;
+  background: var(--aurora-3);
+  animation: aurora-sweep-c 34s ease-in-out infinite alternate;
+}
+
+/* Each blob sweeps the full width and back. ease-in-out plus alternate
+   makes it decelerate at both edges instead of snapping direction. */
+@keyframes aurora-sweep-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(105vw, 0, 0) scale(1.15); }
+}
+@keyframes aurora-sweep-b {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to   { transform: translate3d(-100vw, 0, 0) scale(0.9); }
+}
+@keyframes aurora-sweep-c {
+  from { transform: translate3d(-30vw, 0, 0) scale(0.95); }
+  to   { transform: translate3d(75vw, 0, 0) scale(1.2); }
 }
 
 /* ── floating dashboard container ── */
@@ -116,10 +173,10 @@ body {
   margin-inline: auto;
   width: 100%;
   max-width: 1480px;
-  border-radius: 24px;
+  border-radius: 16px;
   background: var(--canvas);
   border: 1px solid var(--hairline);
-  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(34, 197, 94, 0.08);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -221,7 +278,6 @@ body {
     border: none;
     box-shadow: none;
   }
-  .stage-stripes { opacity: 0.45; }
   .page-title { font-size: 22px !important; }
   .kpi-num { font-size: clamp(28px, 9vw, 40px) !important; }
 }
@@ -245,28 +301,23 @@ body {
   transition: background 0.35s var(--ease-out), color 0.35s var(--ease-out),
     transform 0.45s var(--ease-spring);
 }
-.rail-btn:hover { background: var(--raise); color: var(--ink-hi); transform: translateY(1px); }
-.rail-btn.active {
-  background: var(--green);
-  color: #fff;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 22%, transparent), 0 8px 24px -6px var(--green);
-}
-.rail-btn.exit { background: #000; color: #fff; }
-.rail-btn.exit:hover { transform: translateY(1px) scale(1.04); }
+.rail-btn:hover { background: var(--raise); color: var(--ink-hi); }
+.rail-btn.active { background: var(--green-soft); color: var(--green); }
+.rail-btn.exit { background: var(--raise); color: var(--ink-mid); }
+.rail-btn.exit:hover { color: var(--ink-hi); }
 
 /* ── cards ── */
 .arc-card {
   background: var(--card);
   border: 1px solid var(--hairline);
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: var(--shadow-card);
-  transition: border-color 0.4s var(--ease-out), transform 0.5s var(--ease-spring);
+  transition: border-color 0.2s var(--ease-out);
 }
 .arc-card:hover { border-color: var(--hairline-hover); }
-.arc-card-lift:hover { transform: translateY(-3px); }
 .arc-lime {
-  background: linear-gradient(160deg, #f2ff9e, var(--lime));
-  border-color: rgba(0, 0, 0, 0.06);
+  background: var(--lime);
+  border-color: transparent;
   color: var(--lime-ink);
 }
 
@@ -275,29 +326,27 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--green);
   color: #fff;
-  padding: 0.6rem 1.2rem;
+  padding: 0.55rem 1.1rem;
   font-size: 13.5px;
   font-weight: 600;
-  box-shadow: 0 8px 20px -8px var(--green);
-  transition: filter 0.35s var(--ease-out), transform 0.45s var(--ease-spring);
+  transition: filter 0.15s var(--ease-out);
 }
-.btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.btn-primary:active { transform: scale(0.97); }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-primary:active { filter: brightness(0.95); }
 .btn-ghost {
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--hairline);
-  background: var(--raise);
+  background: transparent;
   color: var(--ink-mid);
-  padding: 0.6rem 1.2rem;
+  padding: 0.55rem 1.1rem;
   font-size: 13.5px;
   font-weight: 500;
-  transition: color 0.3s var(--ease-out), border-color 0.3s var(--ease-out), transform 0.45s var(--ease-spring);
+  transition: color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), background 0.15s var(--ease-out);
 }
-.btn-ghost:hover { color: var(--ink-hi); border-color: var(--hairline-hover); }
-.btn-ghost:active { transform: scale(0.97); }
+.btn-ghost:hover { color: var(--ink-hi); border-color: var(--hairline-hover); background: var(--raise); }
 .icon-btn {
   display: grid;
   place-items: center;
@@ -307,16 +356,16 @@ body {
   background: var(--green);
   color: #fff;
   font-weight: 700;
-  transition: transform 0.4s var(--ease-spring), filter 0.3s var(--ease-out);
+  transition: filter 0.15s var(--ease-out);
 }
-.icon-btn:hover { filter: brightness(1.1); transform: rotate(90deg); }
+.icon-btn:hover { filter: brightness(1.1); }
 
 /* ── fields ── */
 .field-shell {
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--hairline);
   background: var(--raise);
-  transition: border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
 .field-shell:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
 .field-input {
@@ -346,10 +395,9 @@ body {
 }
 .pill-unplaced     { background: var(--raise); color: var(--ink-mid); border-color: var(--hairline); }
 .pill-applied      { background: var(--green-soft); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
-.pill-shortlisted  { background: color-mix(in srgb, #d9a13b 14%, transparent); color: #d9a13b; border-color: color-mix(in srgb, #d9a13b 32%, transparent); }
+.pill-shortlisted  { background: color-mix(in srgb, var(--amber) 14%, transparent); color: var(--amber); border-color: color-mix(in srgb, var(--amber) 32%, transparent); }
 .pill-selected     { background: var(--green-soft); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
-.pill-rejected     { background: rgba(248, 113, 113, 0.12); color: var(--coral); border-color: rgba(248, 113, 113, 0.3); }
-:root[data-theme='light'] .pill-shortlisted { color: #9a6f1e; }
+.pill-rejected     { background: color-mix(in srgb, var(--coral) 12%, transparent); color: var(--coral); border-color: color-mix(in srgb, var(--coral) 30%, transparent); }
 
 /* ── avatar dots (message list) ── */
 .msg-row {
@@ -373,22 +421,32 @@ body {
 .meter-track { height: 6px; border-radius: 9999px; background: var(--raise); overflow: hidden; }
 .meter-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--green), var(--lime)); transition: width 1.1s var(--ease-out); }
 
-.table-row { transition: background 0.3s var(--ease-out); }
+/* ── data tables ──
+   Density comes from the row box, not the type size: 13px stays readable
+   while the tighter block padding fits more rows on screen. */
+.tbl { font-size: 13px; }
+.tbl thead th { padding-block: 0 0.6rem; }
+.tbl tbody td { padding-block: 0.55rem; }
+.tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.table-row { transition: background 0.15s var(--ease-out); }
 .table-row:hover { background: var(--raise); }
 .text-balance { text-wrap: balance; }
 
 /* ── reveal ── */
-.rise { opacity: 0; transform: translateY(22px); animation: rise-in 0.8s var(--ease-out) forwards; }
-.rise-d1 { animation-delay: 0.05s; }
-.rise-d2 { animation-delay: 0.1s; }
-.rise-d3 { animation-delay: 0.15s; }
-.rise-d4 { animation-delay: 0.2s; }
-.rise-d5 { animation-delay: 0.25s; }
-.rise-d6 { animation-delay: 0.3s; }
+.rise { opacity: 0; transform: translateY(8px); animation: rise-in 0.32s var(--ease-out) forwards; }
+.rise-d1 { animation-delay: 0.03s; }
+.rise-d2 { animation-delay: 0.06s; }
+.rise-d3 { animation-delay: 0.09s; }
+.rise-d4 { animation-delay: 0.12s; }
+.rise-d5 { animation-delay: 0.15s; }
+.rise-d6 { animation-delay: 0.18s; }
 @keyframes rise-in { to { opacity: 1; transform: translateY(0); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   .rise { opacity: 1; transform: none; }
+  /* these loop forever, so a near-zero duration would strobe rather than stop */
+  .stage-aurora span { animation: none !important; }
 }
 

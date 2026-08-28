@@ -30,7 +30,7 @@ export default function DriveDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div className="flex items-center gap-3">
           <Logo website={drive.company_website} name={drive.company_name} size={44} />
           <div>
@@ -57,7 +57,7 @@ export default function DriveDetail() {
 
         <div className="grid grid-cols-3 rounded-2xl border border-hairline py-4 text-center">
           <div className="flex flex-col items-center gap-1">
-            <div className="font-display text-lg font-semibold tabular-nums text-lime">{drive.package_lpa ? drive.package_lpa.toFixed(1) : '—'}</div>
+            <div className="font-display text-lg font-semibold tabular-nums text-metric">{drive.package_lpa ? drive.package_lpa.toFixed(1) : '—'}</div>
             <div className="text-[9px] uppercase tracking-[0.14em] text-ink-low">LPA</div>
           </div>
           <div className="border-x border-hairline">
@@ -95,8 +95,30 @@ export default function DriveDetail() {
             <h2 className="font-display text-[15px] font-bold leading-none text-ink-hi">Applications</h2>
             <span className="text-[11px] leading-none text-ink-low">{drive.applications.length} candidates</span>
           </div>
-          <div className="mt-3 overflow-x-auto px-5 pt-5 pb-5">
-            <table className="w-full text-sm">
+          {/* Mobile card list */}
+          <div className="mobile-list mt-3 flex md:hidden">
+            {drive.applications.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => navigate(`/applications/${a.id}`)}
+                className="mobile-list-card block w-full text-left active:scale-[0.99]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-semibold text-ink-hi">{a.student_name}</p>
+                    <p className="mt-0.5 text-[12px] tabular-nums text-ink-mid">{a.roll_no} · {a.department}</p>
+                  </div>
+                  <StatusPill status={a.status} />
+                </div>
+                <p className="mt-2 text-[11px] tabular-nums text-ink-low">Applied {a.applied_at}</p>
+              </button>
+            ))}
+            {!drive.applications.length && <p className="py-8 text-center text-sm text-ink-low">No applications for this drive yet.</p>}
+          </div>
+
+          <div className="mt-3 hidden overflow-x-auto px-5 pt-5 pb-5 md:block">
+            <table className="tbl w-full">
               <colgroup>
                 <col className="w-[28%]" /><col className="w-[22%]" /><col className="w-[16%]" /><col className="w-[18%]" /><col className="w-[16%]" />
               </colgroup>
@@ -140,8 +162,31 @@ export default function DriveDetail() {
               <span className="text-[11px] leading-none text-ink-low">{targets.length} candidates</span>
             </div>
             {targets.length ? (
-              <div className="mt-3 overflow-x-auto px-5 pb-5">
-                <table className="w-full text-sm">
+              <>
+              {/* Mobile card list */}
+              <div className="mobile-list mt-3 flex md:hidden">
+                {targets.map((t) => (
+                  <div key={t.id} className="mobile-list-card">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-[15px] font-semibold text-ink-hi">{t.name}</p>
+                        <p className="mt-0.5 text-[12px] tabular-nums text-ink-mid">{t.roll_no} · {t.department}</p>
+                      </div>
+                      <span className="shrink-0 text-[12px] tabular-nums text-ink-mid">CGPA {t.cgpa.toFixed(2)}</span>
+                    </div>
+                    {(t.skills || []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {(t.skills || []).map((sk) => (
+                          <span key={sk} className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-ink-mid">{sk}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 hidden overflow-x-auto px-5 pb-5 md:block">
+                <table className="tbl w-full">
                   <thead>
                     <tr className="border-b border-hairline text-left text-[10px] uppercase tracking-[0.16em] text-ink-low">
                       <th className="px-2 py-3 font-medium">Roll No</th>
@@ -170,6 +215,7 @@ export default function DriveDetail() {
                   </tbody>
                 </table>
               </div>
+              </>
             ) : (
               <p className="px-5 py-8 text-center text-sm text-ink-low">Everyone eligible has already applied.</p>
             )}

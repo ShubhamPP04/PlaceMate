@@ -55,8 +55,9 @@ def create_app():
     )
 
     db.init_app(app)
-    cors_origins = [frontend_origin] if frontend_origin else True
-    CORS(app, supports_credentials=True, origins=cors_origins)
+    # flask-cors rejects a bool here; "*" makes it echo the request origin,
+    # which is what credentialed requests need in local dev.
+    CORS(app, supports_credentials=True, origins=[frontend_origin] if frontend_origin else "*")
 
     from .routes.auth import auth_bp
     from .routes.admin import admin_bp

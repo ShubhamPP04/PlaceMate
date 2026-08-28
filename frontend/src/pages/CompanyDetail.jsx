@@ -35,7 +35,7 @@ export default function CompanyDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div className="flex items-center gap-3">
           <Logo website={company.website} name={company.name} size={44} />
           <div>
@@ -82,7 +82,7 @@ export default function CompanyDetail() {
                   <p className="mt-1.5 text-sm text-ink-mid">{d.role}</p>
                   <div className="mt-5 grid grid-cols-3 rounded-2xl border border-hairline py-4 text-center">
                     <div className="flex flex-col items-center gap-1">
-                      <div className="font-display text-lg font-semibold tabular-nums text-lime">{d.package_lpa ? d.package_lpa.toFixed(1) : '—'}</div>
+                      <div className="font-display text-lg font-semibold tabular-nums text-metric">{d.package_lpa ? d.package_lpa.toFixed(1) : '—'}</div>
                       <div className="text-[9px] uppercase tracking-[0.14em] text-ink-low">LPA</div>
                     </div>
                     <div className="border-x border-hairline">

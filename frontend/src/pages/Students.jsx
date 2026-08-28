@@ -94,10 +94,13 @@ export default function Students() {
   }
 
   const TEMPLATE = 'roll_no,name,email,phone,program,department,cgpa,graduation_year,skills,status'
+  // A one-option program filter is dead weight; it reappears if a second
+  // program is ever added back.
+  const multiProgram = programs.length > 1
 
   return (
     <div className="space-y-6">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <p className="text-[12px] leading-none text-ink-low">{students.length} enrolled</p>
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Students</h1>
@@ -156,7 +159,7 @@ export default function Students() {
           <div className="p-5 pb-0">
             {/* filter row — scopes everything below */}
             <div className="mb-5 grid gap-2.5 md:grid-cols-12">
-              <div className="field-shell md:col-span-4">
+              <div className={`field-shell ${multiProgram ? 'md:col-span-4' : 'md:col-span-6'}`}>
                 <input
                   className={inputClass}
                   placeholder="Search name or roll no…"
@@ -165,12 +168,14 @@ export default function Students() {
                   onKeyDown={(e) => e.key === 'Enter' && load()}
                 />
               </div>
-              <div className="field-shell md:col-span-2">
-                <select className={inputClass} value={filters.program} onChange={(e) => setFilters({ ...filters, program: e.target.value })}>
-                  <option value="">All programs</option>
-                  {programs.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+              {multiProgram && (
+                <div className="field-shell md:col-span-2">
+                  <select className={inputClass} value={filters.program} onChange={(e) => setFilters({ ...filters, program: e.target.value })}>
+                    <option value="">All programs</option>
+                    {programs.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="field-shell md:col-span-2">
                 <select className={inputClass} value={filters.dept} onChange={(e) => setFilters({ ...filters, dept: e.target.value })}>
                   <option value="">All depts</option>
@@ -200,7 +205,7 @@ export default function Students() {
                   <StatusPill status={s.status} />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mid">
-                  <span>{s.department} · {s.program}</span>
+                  <span>{multiProgram ? `${s.department} · ${s.program}` : s.department}</span>
                   <span className="tabular-nums">CGPA {s.cgpa.toFixed(2)}</span>
                   <span className="tabular-nums">Grad {s.graduation_year}</span>
                 </div>
@@ -215,14 +220,14 @@ export default function Students() {
           </div>
 
           <div className="hidden overflow-x-auto px-5 pb-5 md:block">
-            <table className="w-full text-sm">
+            <table className="tbl w-full">
               <colgroup>
-                <col className="w-[14%]" />
-                <col className="w-[24%]" />
-                <col className="w-[9%]" />
-                <col className="w-[9%]" />
-                <col className="w-[9%]" />
                 <col className="w-[13%]" />
+                <col className="w-[27%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+                <col className="w-[8%]" />
+                <col className="w-[12%]" />
                 <col className="w-[22%]" />
               </colgroup>
               <thead>
@@ -246,18 +251,18 @@ export default function Students() {
                     </td>
                     <td className="px-2 py-3">
                       <div className="text-ink-mid">{s.department}</div>
-                      <div className="text-[10px] uppercase tracking-wide text-ink-low">{s.program}</div>
+                      {multiProgram && <div className="text-[10px] uppercase tracking-wide text-ink-low">{s.program}</div>}
                     </td>
                     <td className="px-2 py-3 text-right tabular-nums text-ink-mid">{s.cgpa.toFixed(2)}</td>
                     <td className="px-2 py-3 text-right tabular-nums text-ink-mid">{s.graduation_year}</td>
                     <td className="px-2 py-3"><StatusPill status={s.status} /></td>
                     <td className="px-2 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(s)} className="rounded-full border border-hairline px-3 py-1 text-[11px] text-ink-mid transition-all duration-500 hover:bg-raise active:scale-[0.98]">Edit</button>
-                        <button onClick={() => handleReset(s)} className="rounded-full border border-hairline px-3 py-1 text-[11px] text-ink-mid transition-all duration-500 hover:bg-raise active:scale-[0.98]">Reset pwd</button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(s)} className="whitespace-nowrap rounded-md px-2 py-1 text-[11px] text-ink-mid transition-colors hover:bg-raise hover:text-ink-hi">Edit</button>
+                        <button onClick={() => handleReset(s)} className="whitespace-nowrap rounded-md px-2 py-1 text-[11px] text-ink-mid transition-colors hover:bg-raise hover:text-ink-hi">Reset pwd</button>
                         <button
                           onClick={() => handleDelete(s)}
-                          className="rounded-full border border-coral/25 px-3 py-1 text-[11px] text-coral transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-coral/10 active:scale-[0.98]"
+                          className="whitespace-nowrap rounded-md px-2 py-1 text-[11px] text-ink-mid transition-colors hover:bg-coral/10 hover:text-coral"
                         >
                           Remove
                         </button>

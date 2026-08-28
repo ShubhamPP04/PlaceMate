@@ -1,8 +1,8 @@
-/* Shared UI primitives — Arcedia edition */
+/* Shared UI primitives */
 
-export function Card({ className = '', lime = false, lift = true, children, ...rest }) {
+export function Card({ className = '', lime = false, children, ...rest }) {
   return (
-    <div className={`arc-card ${lime ? 'arc-lime' : ''} ${lift ? 'arc-card-lift' : ''} ${className}`} {...rest}>
+    <div className={`arc-card ${lime ? 'arc-lime' : ''} ${className}`} {...rest}>
       {children}
     </div>
   )
@@ -11,7 +11,7 @@ export function Card({ className = '', lime = false, lift = true, children, ...r
 export function Eyebrow({ children, live = false }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-raise px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-mid">
-      {live && <span className="h-1.5 w-1.5 rounded-full bg-green shadow-[0_0_8px_var(--green)]" />}
+      {live && <span className="h-1.5 w-1.5 rounded-full bg-green" />}
       {children}
     </span>
   )
@@ -71,7 +71,7 @@ export const inputClass = 'field-input'
 export function Alert({ kind = 'info', children, onClose }) {
   const dot = { success: 'bg-green', danger: 'bg-coral', info: 'bg-ink-mid' }[kind]
   return (
-    <div className="rise arc-card" style={{ lift: false }}>
+    <div className="rise arc-card">
       <div className="flex items-center justify-between px-5 py-3.5">
         <div className="flex items-center gap-3 text-sm text-ink-hi">
           <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />

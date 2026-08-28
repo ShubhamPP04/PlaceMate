@@ -25,7 +25,7 @@ export default function PortalApplications() {
               <StatusPill status={a.status} />
             </div>
             <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl border border-hairline py-3 text-center text-xs">
-              <div className="text-ink-low">Package<span className="ml-1 font-semibold text-lime">{a.package_lpa ? a.package_lpa.toFixed(1) + ' LPA' : '—'}</span></div>
+              <div className="text-ink-low">Package<span className="ml-1 font-semibold text-metric">{a.package_lpa ? a.package_lpa.toFixed(1) + ' LPA' : '—'}</span></div>
               <div className="text-ink-low">Drive date<span className="ml-1 font-semibold text-ink-hi">{a.drive_date || '—'}</span></div>
               <div className="text-ink-low">Applied<span className="ml-1 font-semibold text-ink-hi">{a.applied_at}</span></div>
             </div>

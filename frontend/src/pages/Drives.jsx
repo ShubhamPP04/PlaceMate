@@ -78,10 +78,10 @@ export default function Drives() {
 
   return (
     <div className="space-y-6">
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <p className="flex items-center gap-2 text-[12px] leading-none text-ink-low">
-            {drives.some((d) => d.is_active) && <span className="h-1.5 w-1.5 rounded-full bg-green shadow-[0_0_8px_var(--green)]" />}
+            {drives.some((d) => d.is_active) && <span className="h-1.5 w-1.5 rounded-full bg-green" />}
             {drives.filter((d) => d.is_accepting).length} accepting of {drives.length}
           </p>
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Drives</h1>
@@ -161,7 +161,7 @@ export default function Drives() {
 
                 <div className="mt-5 grid grid-cols-3 rounded-2xl border border-hairline py-4 text-center">
                   <div className="flex flex-col items-center gap-1">
-                    <div className="font-display text-lg font-semibold tabular-nums text-lime">
+                    <div className="font-display text-lg font-semibold tabular-nums text-metric">
                       {d.package_lpa ? d.package_lpa.toFixed(1) : '—'}
                     </div>
                     <div className="text-[9px] uppercase tracking-[0.14em] text-ink-low">LPA</div>

@@ -13,12 +13,13 @@ function useChartTheme() {
       const v = (n) => cs.getPropertyValue(n).trim()
       setT({
         green: v('--green') || '#22c55e',
-        lime: v('--lime') || '#e8ff66',
+        metric: v('--metric') || '#d3ef4c',
+        amber: v('--amber') || '#d9a13b',
         coral: v('--coral') || '#f87171',
-        inkLow: v('--ink-low') || '#6b8f77',
-        card: v('--card') || '#16311f',
-        hairline: v('--hairline') || 'rgba(190,255,210,0.1)',
-        inkHi: v('--ink-hi') || '#f2fff5',
+        inkLow: v('--ink-low') || '#6c7280',
+        card: v('--card') || '#141619',
+        hairline: v('--hairline') || 'rgba(255,255,255,0.08)',
+        inkHi: v('--ink-hi') || '#f4f5f7',
       })
     }
     read()
@@ -61,7 +62,7 @@ export default function Dashboard() {
   const { stats, charts, dept_stats: deptStats } = data
   const funnel = charts.appFunnel.labels.map((l, i) => ({
     name: l, value: charts.appFunnel.values[i],
-    fill: [T.green, '#d9a13b', T.lime, T.coral][i],
+    fill: [T.green, T.amber, T.metric, T.coral][i],
   }))
   const skills = charts.topSkills.labels.map((l, i) => ({ name: l, value: charts.topSkills.values[i] }))
   const trend = charts.monthlyApps.labels.map((l, i) => ({ month: l, apps: charts.monthlyApps.values[i] }))
@@ -76,7 +77,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-4">
       {/* header — fixed height row */}
-      <div className="rise flex items-end justify-between gap-4 pb-1 flex-wrap">
+      <div className="rise flex flex-col items-start gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <p className="text-[12px] leading-none text-ink-low">Overview</p>
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">
@@ -84,7 +85,7 @@ export default function Dashboard() {
           </h1>
         </div>
         <span className="inline-flex h-8 items-center gap-2 rounded-full border border-hairline bg-raise px-3 text-[11px] font-semibold uppercase tracking-wide text-ink-mid">
-          <span className="h-1.5 w-1.5 rounded-full bg-green shadow-[0_0_8px_var(--green)]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-green" />
           Season 2026 · Live
         </span>
       </div>
@@ -172,7 +173,7 @@ export default function Dashboard() {
               <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} tickMargin={10} />
               <YAxis tick={AXIS} axisLine={false} tickLine={false} width={44} />
               <Tooltip contentStyle={TOOLTIP} cursor={{ fill: T.hairline }} />
-              <Bar dataKey="pct" fill={T.lime} radius={[8, 8, 2, 2]} maxBarSize={40} minBarSize={3} barCategoryGap="28%" />
+              <Bar dataKey="pct" fill={T.metric} radius={[8, 8, 2, 2]} maxBarSize={40} minBarSize={3} barCategoryGap="28%" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -193,7 +194,7 @@ export default function Dashboard() {
                   paddingAngle={3} strokeWidth={0} startAngle={90} endAngle={-270} cx="50%" cy="50%"
                 >
                   <Cell fill={T.green} />
-                  <Cell fill="#d9a13b" />
+                  <Cell fill={T.amber} />
                   <Cell fill={T.inkLow} fillOpacity={0.35} />
                 </Pie>
               </PieChart>
@@ -221,7 +222,7 @@ export default function Dashboard() {
           <span className="text-[11px] leading-none text-ink-low">{deptStats.length} departments</span>
         </div>
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="tbl w-full">
             <thead>
               <tr className="border-b border-hairline text-left text-[11px] uppercase tracking-wide text-ink-low">
                 <th className="px-5 py-3 font-semibold">Department</th>

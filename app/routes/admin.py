@@ -344,7 +344,9 @@ def import_students():
         return jsonify(error="Missing CSV file (field 'file')."), 400
     text = file.read().decode("utf-8-sig", errors="replace")
     try:
-        df = pd.read_csv(io.StringIO(text))
+        # dtype=str keeps pandas from inferring types: a numeric phone or roll
+        # number column would otherwise arrive as int and break the .strip()s.
+        df = pd.read_csv(io.StringIO(text), dtype=str)
     except Exception:
         return jsonify(error="Could not parse CSV."), 400
     if not REQUIRED_CSV.issubset({c.strip() for c in df.columns}):
@@ -365,7 +367,7 @@ def import_students():
         except (TypeError, ValueError):
             cgpa = 0.0
         try:
-            grad = int(record.get("graduation_year") or 2027)
+            grad = int(float(record.get("graduation_year") or 2027))
         except (TypeError, ValueError):
             grad = 2027
         if not (roll and email and name and dept):

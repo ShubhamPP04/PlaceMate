@@ -27,7 +27,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="relative grid min-h-[100dvh] place-items-center px-4 py-10" style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top))', paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))' }}>
-      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /></div>
+      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /><span /></div>
 
       <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5" style={{ top: 'max(1rem, env(safe-area-inset-top))' }}>
         <ThemeToggle />
@@ -53,8 +53,8 @@ export default function Login({ onLogin }) {
           </div>
         )}
 
-        <div className="rise rise-d1 arc-card !p-0">
-          <form onSubmit={handleSubmit} className="bezel-core space-y-5 p-7">
+        <div className="rise rise-d1 liquid-glass liquid-glass--hero p-0">
+          <form onSubmit={handleSubmit} className="relative z-[2] space-y-5 p-7">
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-low">Email</span>
               <div className="field-shell">

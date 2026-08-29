@@ -16,10 +16,11 @@ function useChartTheme() {
         metric: v('--metric') || '#d3ef4c',
         amber: v('--amber') || '#d9a13b',
         coral: v('--coral') || '#f87171',
-        inkLow: v('--ink-low') || '#6c7280',
+        inkLow: v('--ink-low') || '#eceef2',
         card: v('--card') || '#141619',
         hairline: v('--hairline') || 'rgba(255,255,255,0.08)',
-        inkHi: v('--ink-hi') || '#f4f5f7',
+        inkHi: v('--ink-hi') || '#ffffff',
+        dark: document.documentElement.dataset.theme !== 'light',
       })
     }
     read()
@@ -44,10 +45,12 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const T = useChartTheme()
-  const AXIS = { fill: T.inkLow, fontSize: 11 }
+  const AXIS = { fill: T.inkHi, fontSize: 11 }
   const TOOLTIP = {
-    backgroundColor: T.card, border: '1px solid ' + T.hairline, borderRadius: 12,
-    fontSize: 13, padding: '8px 12px', color: T.inkHi,
+    backgroundColor: T.dark ? 'rgba(12, 24, 20, 0.96)' : 'rgba(255,255,255,0.96)',
+    border: '1px solid ' + (T.hairline || 'rgba(255,255,255,0.16)'),
+    borderRadius: 12,
+    fontSize: 13, padding: '8px 12px', color: T.dark ? '#ffffff' : T.inkHi,
   }
   /* identical chart insets everywhere: roomy bottom for X labels */
   const INSET = { left: -18, right: 8, top: 6, bottom: 4 }
@@ -123,7 +126,7 @@ export default function Dashboard() {
                   <stop offset="100%" stopColor={T.green} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="2 6" stroke={T.inkLow} strokeOpacity={0.28} vertical={false} />
+              <CartesianGrid strokeDasharray="2 6" stroke={T.hairline} vertical={false} />
               <XAxis dataKey="month" tick={AXIS} axisLine={false} tickLine={false} tickMargin={10} />
               <YAxis allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} width={44} />
               <Tooltip contentStyle={TOOLTIP} cursor={{ stroke: T.hairline }} />
@@ -136,7 +139,7 @@ export default function Dashboard() {
           <CardHead title="Funnel" tag="candidate stages" />
           <ResponsiveContainer width="100%" height={236}>
             <BarChart data={funnel} margin={INSET}>
-              <CartesianGrid strokeDasharray="2 6" stroke={T.inkLow} strokeOpacity={0.28} vertical={false} />
+              <CartesianGrid strokeDasharray="2 6" stroke={T.hairline} vertical={false} />
               <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} tickMargin={10} />
               <YAxis allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} width={44} />
               <Tooltip contentStyle={TOOLTIP} cursor={{ fill: T.hairline }} />
@@ -155,7 +158,7 @@ export default function Dashboard() {
           {skills.length ? (
             <ResponsiveContainer width="100%" height={224}>
               <BarChart data={skills} layout="vertical" margin={{ left: 4, right: 12, top: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="2 6" stroke={T.inkLow} strokeOpacity={0.28} horizontal={false} />
+                <CartesianGrid strokeDasharray="2 6" stroke={T.hairline} horizontal={false} />
                 <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" width={84} tick={AXIS} axisLine={false} tickLine={false} tickMargin={0} />
                 <Tooltip contentStyle={TOOLTIP} cursor={{ fill: T.hairline }} />
@@ -169,7 +172,7 @@ export default function Dashboard() {
           <CardHead title="Dept placement" tag="% selected" />
           <ResponsiveContainer width="100%" height={224}>
             <BarChart data={deptRate} margin={INSET}>
-              <CartesianGrid strokeDasharray="2 6" stroke={T.inkLow} strokeOpacity={0.28} vertical={false} />
+              <CartesianGrid strokeDasharray="2 6" stroke={T.hairline} vertical={false} />
               <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} tickMargin={10} />
               <YAxis tick={AXIS} axisLine={false} tickLine={false} width={44} />
               <Tooltip contentStyle={TOOLTIP} cursor={{ fill: T.hairline }} />
@@ -195,7 +198,7 @@ export default function Dashboard() {
                 >
                   <Cell fill={T.green} />
                   <Cell fill={T.amber} />
-                  <Cell fill={T.inkLow} fillOpacity={0.35} />
+                  <Cell fill={T.hairline} />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>

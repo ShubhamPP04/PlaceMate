@@ -128,7 +128,7 @@ export default function Layout({ user, onLogout }) {
 
   return (
     <div className="relative min-h-[100dvh] md:p-6 lg:p-8">
-      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /></div>
+      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /><span /></div>
 
       <div className="arc-shell mobile-shell grid h-[100dvh] grid-cols-1 overflow-hidden md:h-[calc(100dvh-48px)] md:grid-cols-[64px_1fr] lg:h-[calc(100dvh-64px)] lg:grid-cols-[64px_280px_1fr]">
         {/* ── desktop icon rail ── */}
@@ -164,7 +164,7 @@ export default function Layout({ user, onLogout }) {
         </aside>
 
         {/* ── desktop messages sidebar ── */}
-        <aside className="hidden flex-col border-r border-hairline bg-panel lg:flex">
+        <aside className="glass-pane hidden flex-col border-r border-hairline lg:flex">
           <div className="flex-1 overflow-y-auto p-5">
             <p className="text-sm text-ink-low">Welcome to</p>
             <h1 className="font-display mb-6 mt-0.5 text-[28px] font-extrabold leading-none tracking-tight text-ink-hi">
@@ -224,7 +224,7 @@ export default function Layout({ user, onLogout }) {
         </aside>
 
         {/* ── main column (mobile top bar + scroll + bottom tabs) ── */}
-        <div className="flex min-h-0 min-w-0 flex-col bg-panel-2/60">
+        <div className="flex min-h-0 min-w-0 flex-col bg-transparent">
           <header className="mobile-topbar flex md:!hidden">
             <NavLink to={home} className="flex min-w-0 items-center gap-2.5">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black text-[12px] font-black tracking-tighter text-lime">

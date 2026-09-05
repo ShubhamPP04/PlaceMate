@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify
+from flask import Flask, current_app, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 
@@ -29,7 +29,18 @@ def _load_dotenv():
 def create_app():
     _load_dotenv()
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or "dev-secret-change-me"
+    # Cross-origin session cookies (Vercel UI ↔ Vercel API on different subdomains).
+    frontend_origin = (os.environ.get("FRONTEND_ORIGIN") or "").rstrip("/")
+    is_prod = bool(os.environ.get("VERCEL") or os.environ.get("FRONTEND_ORIGIN"))
+    secret_key = os.environ.get("SECRET_KEY")
+    if not secret_key:
+        if is_prod:
+            raise RuntimeError(
+                "SECRET_KEY is required in production — sessions signed with the "
+                "dev fallback are forgeable by anyone who has read this source."
+            )
+        secret_key = "dev-secret-change-me"  # local dev only
+    app.config["SECRET_KEY"] = secret_key
     # Prefer DATABASE_URL (Railway/Neon/Vercel). Convert postgres:// → postgresql://
     # for SQLAlchemy when hosts inject the short Heroku-style scheme.
     database_url = os.environ.get("DATABASE_URL") or (
@@ -45,9 +56,6 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    # Cross-origin session cookies (Vercel UI ↔ Vercel API on different subdomains).
-    frontend_origin = (os.environ.get("FRONTEND_ORIGIN") or "").rstrip("/")
-    is_prod = bool(os.environ.get("VERCEL") or os.environ.get("FRONTEND_ORIGIN"))
     app.config.update(
         SESSION_COOKIE_SAMESITE="None" if is_prod else "Lax",
         SESSION_COOKIE_SECURE=True if is_prod else False,
@@ -69,7 +77,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        _seed_admin()
+        _seed_admin(is_prod)
 
     @app.errorhandler(404)
     def not_found(_):
@@ -78,13 +86,22 @@ def create_app():
     return app
 
 
-def _seed_admin():
-    """Create a default admin account on first run."""
+def _seed_admin(is_prod=False):
+    """Create the initial admin account; password comes from ADMIN_PASSWORD."""
     if not User.query.filter_by(role="admin").first():
+        password = os.environ.get("ADMIN_PASSWORD")
+        if not password:
+            password = "admin123"
+            if is_prod:
+                current_app.logger.warning(
+                    "No ADMIN_PASSWORD set — seeded admin@placemate.edu with the "
+                    "default password 'admin123'. Change it or set ADMIN_PASSWORD "
+                    "before exposing this deployment."
+                )
         db.session.add(
             User(
                 email="admin@placemate.edu",
-                password_hash=generate_password_hash("admin123"),
+                password_hash=generate_password_hash(password),
                 name="Placement Cell Admin",
                 role="admin",
             )

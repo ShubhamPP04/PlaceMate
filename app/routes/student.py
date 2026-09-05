@@ -2,6 +2,8 @@
 from datetime import date
 
 from flask import Blueprint, g, jsonify, request
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
 from .auth import login_required
 from ..extensions import db
@@ -64,7 +66,7 @@ def summary():
         {"id": d.id, "title": d.title, "company_name": d.company.name,
          "deadline": d.application_deadline.isoformat() if d.application_deadline else None,
          "package_lpa": d.package_lpa}
-        for d in Drive.query.filter(
+        for d in Drive.query.options(joinedload(Drive.company)).filter(
             Drive.is_active.is_(True),
             Drive.application_deadline.isnot(None),
             Drive.application_deadline >= today,
@@ -94,7 +96,8 @@ def drives():
     applied = {a.drive_id: a for a in Application.query.filter_by(student_id=student.id)}
     rows = [
         _drive_dict_for(student, d, applied.get(d.id))
-        for d in Drive.query.order_by(Drive.drive_date).all()
+        for d in Drive.query.options(joinedload(Drive.company))
+        .order_by(Drive.drive_date).all()
     ]
     # Drives a student can still act on come first, soonest deadline leading;
     # closed ones stay visible underneath for reference. is_accepting is a
@@ -119,7 +122,12 @@ def apply(did):
 
     app_row = Application(student_id=student.id, drive_id=drive.id, status="applied")
     db.session.add(app_row)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Lost a race with a concurrent request hitting the same unique pair.
+        db.session.rollback()
+        return jsonify(error="Already applied to this drive."), 400
     return jsonify(application={"id": app_row.id, "status": app_row.status}), 201
 
 

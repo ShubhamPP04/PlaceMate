@@ -1,11 +1,32 @@
 """Admin / Placement Cell API — dashboard stats, students, companies, drives, applications."""
 import io
+import logging
+import secrets
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 import pandas as pd
 from flask import Blueprint, jsonify, request, send_file
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
+
+log = logging.getLogger(__name__)
+
+
+def _save_error(exc, fallback="Could not save changes. The data may conflict with an existing record.",
+                status=409):
+    """Log the raw DB exception, return a client-safe message (no SQL internals)."""
+    log.warning("DB write failed: %s", exc)
+    db.session.rollback()
+    return jsonify(error=fallback), status
+
+
+def _csv_safe(v):
+    """Neutralize spreadsheet formula injection (=,+,-,@ leading cells)."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@"):
+        return "'" + v
+    return v
 
 from .auth import login_required
 from ..extensions import db
@@ -89,7 +110,11 @@ def dashboard():
     students = Student.query.all()
     companies_count = Company.query.count()
     drives = Drive.query.all()
-    applications = Application.query.all()
+    # joinedload kills the N+1 lazy loads in the loops below
+    applications = Application.query.options(
+        joinedload(Application.student),
+        joinedload(Application.drive).joinedload(Drive.company),
+    ).all()
 
     total_students = len(students)
     selected = sum(1 for s in students if s.status == "selected")
@@ -243,45 +268,64 @@ def add_student():
             graduation_year=int(data.get("graduation_year") or 2027),
             skills=", ".join(data.get("skills", [])) if isinstance(data.get("skills"), list) else data.get("skills", ""),
         )
-        # Provision a student login (email + roll_no as default password).
-        _ensure_student_user(student)
+        # Provision a student login with a one-time random password.
+        _, temp_password = _ensure_student_user(student)
         db.session.add(student)
         db.session.flush()
         db.session.commit()
-        return jsonify(student={**_student_dict(student), "temp_password": student.roll_no.lower()}), 201
+        return jsonify(student={**_student_dict(student), "temp_password": temp_password}), 201
     except KeyError as exc:
         return jsonify(error=f"Missing field: {exc.args[0]}"), 400
-    except Exception as exc:
-        db.session.rollback()
-        return jsonify(error=str(exc)), 400
+    except IntegrityError as exc:
+        return _save_error(exc, "A student with that roll number or email already exists.")
+    except (TypeError, ValueError) as exc:
+        return _save_error(exc, f"Invalid value: {exc}")
 
 
 @admin_bp.delete("/students/<int:sid>")
 @login_required(role="admin")
 def delete_student(sid):
     student = db.get_or_404(Student, sid)
+    # Children first: applications reference this student (FK + NOT NULL),
+    # then the linked login User so no orphaned account survives the delete.
+    Application.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    user = db.session.get(User, student.user_id) if student.user_id else None
+    if user:
+        db.session.delete(user)
     db.session.delete(student)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return _save_error(exc, "Could not delete this student.")
     return jsonify(ok=True)
 
 
 def _ensure_student_user(student):
-    """Link a login User to a Student, creating one if missing. Caller commits."""
-    if student.user_id and db.session.get(User, student.user_id):
+    """Return (user, temp_password), linking or creating the login for a Student.
+
+    temp_password is set only when a *new* login is created (random one-time
+    password shown to the admin once); None when the login already exists.
+    Caller commits.
+    """
+    if student.user_id:
         user = db.session.get(User, student.user_id)
-        if user.email != student.email:
-            user.email = student.email
-        return user
+        if user:
+            if user.email != student.email:
+                user.email = student.email
+            if user.name != student.name:
+                user.name = student.name
+            return user, None
+    temp_password = secrets.token_urlsafe(8)
     user = User(
         email=student.email,
-        password_hash=generate_password_hash(student.roll_no.lower()),
+        password_hash=generate_password_hash(temp_password),
         name=student.name,
         role="student",
     )
     db.session.add(user)
     db.session.flush()
     student.user_id = user.id
-    return user
+    return user, temp_password
 
 
 @admin_bp.put("/students/<int:sid>")
@@ -298,7 +342,9 @@ def update_student(sid):
             student.email = data["email"].strip().lower()
         if "phone" in data:
             student.phone = (data.get("phone") or "").strip() or None
-        if data.get("program") in PROGRAMS:
+        if "program" in data:
+            if data["program"] not in PROGRAMS:
+                return jsonify(error=f"Invalid program: {data.get('program')}"), 400
             student.program = data["program"]
         if "department" in data:
             student.department = data["department"].strip()
@@ -318,19 +364,21 @@ def update_student(sid):
             _ensure_student_user(student)
         db.session.commit()
         return jsonify(student=_student_dict(student))
-    except Exception as exc:
-        db.session.rollback()
-        return jsonify(error=str(exc)), 400
+    except IntegrityError as exc:
+        return _save_error(exc, "Another student already has that roll number or email.")
+    except (TypeError, ValueError) as exc:
+        return _save_error(exc, f"Invalid value: {exc}")
 
 
 @admin_bp.post("/students/<int:sid>/reset-password")
 @login_required(role="admin")
 def reset_student_password(sid):
     student = db.get_or_404(Student, sid)
-    user = _ensure_student_user(student)
-    user.password_hash = generate_password_hash(student.roll_no.lower())
+    user, _ = _ensure_student_user(student)
+    temp_password = secrets.token_urlsafe(8)
+    user.password_hash = generate_password_hash(temp_password)
     db.session.commit()
-    return jsonify(temp_password=student.roll_no.lower())
+    return jsonify(temp_password=temp_password)
 
 
 REQUIRED_CSV = {"roll_no", "name", "email", "department"}
@@ -351,10 +399,13 @@ def import_students():
         return jsonify(error="Could not parse CSV."), 400
     if not REQUIRED_CSV.issubset({c.strip() for c in df.columns}):
         return jsonify(error="CSV must contain columns: " + ", ".join(sorted(REQUIRED_CSV))), 400
+    if len(df) > 5000:
+        return jsonify(error="CSV too large — import at most 5000 rows at a time."), 400
 
     existing = {s.roll_no for s in Student.query.with_entities(Student.roll_no)}
     existing_emails = {s.email for s in Student.query.with_entities(Student.email)}
     created, skipped = 0, []
+    credentials = []  # one-time passwords for newly provisioned logins
     for i, row in df.iterrows():
         idx = i + 2  # 1-based row + header
         record = {str(c).strip(): ("" if pd.isna(v) else v) for c, v in row.items()}
@@ -386,14 +437,18 @@ def import_students():
             department=dept, cgpa=cgpa, graduation_year=grad,
             skills=record.get("skills") if record.get("skills") else "",
         )
-        _ensure_student_user(student)
+        _, temp_password = _ensure_student_user(student)
         db.session.add(student)
+        credentials.append({"email": email, "temp_password": temp_password})
         existing.add(roll)
         existing_emails.add(email)
         created += 1
 
-    db.session.commit()
-    return jsonify(created=created, skipped=skipped)
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return _save_error(exc, "Import failed — a row conflicts with existing data.")
+    return jsonify(created=created, skipped=skipped, temp_passwords=credentials)
 
 
 # ----------------------------------------------------------------- companies
@@ -436,9 +491,8 @@ def add_company():
         return jsonify(company=_company_dict(company)), 201
     except KeyError:
         return jsonify(error="Missing field: name"), 400
-    except Exception as exc:
-        db.session.rollback()
-        return jsonify(error=str(exc)), 400
+    except IntegrityError as exc:
+        return _save_error(exc, "A company with that name already exists.")
 
 
 @admin_bp.put("/companies/<int:cid>")
@@ -457,17 +511,25 @@ def update_company(cid):
             company.hr_email = (data.get("hr_email") or "").strip() or None
         db.session.commit()
         return jsonify(company=_company_dict(company))
-    except Exception as exc:
-        db.session.rollback()
-        return jsonify(error=str(exc)), 400
+    except IntegrityError as exc:
+        return _save_error(exc, "A company with that name already exists.")
 
 
 @admin_bp.delete("/companies/<int:cid>")
 @login_required(role="admin")
 def delete_company(cid):
     company = db.get_or_404(Company, cid)
+    # Children first: applications of every drive of this company, then the
+    # drives (FK drives.company_id is NOT NULL), then the company itself.
+    drive_ids = [d.id for d in company.drives]
+    if drive_ids:
+        Application.query.filter(Application.drive_id.in_(drive_ids)).delete(synchronize_session=False)
+        Drive.query.filter(Drive.id.in_(drive_ids)).delete(synchronize_session=False)
     db.session.delete(company)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return _save_error(exc, "Could not delete this company.")
     return jsonify(ok=True)
 
 
@@ -480,7 +542,7 @@ def list_drives():
     status = request.args.get("status", "")  # active | closed
     company_id = request.args.get("company", "").strip()
 
-    query = Drive.query
+    query = Drive.query.options(joinedload(Drive.company))
     if q:
         query = query.filter(db.or_(
             Drive.title.ilike(f"%{q}%"),
@@ -540,9 +602,10 @@ def add_drive():
         return jsonify(drive=_drive_dict(drive)), 201
     except KeyError as exc:
         return jsonify(error=f"Missing field: {exc.args[0]}"), 400
-    except Exception as exc:
-        db.session.rollback()
-        return jsonify(error=str(exc)), 400
+    except IntegrityError as exc:
+        return _save_error(exc)
+    except (TypeError, ValueError) as exc:
+        return _save_error(exc, f"Invalid value: {exc}", 400)
 
 
 @admin_bp.put("/drives/<int:did>")
@@ -574,9 +637,24 @@ def update_drive(did):
                 if data.get("application_deadline") else None
         db.session.commit()
         return jsonify(drive=_drive_dict(drive))
-    except Exception as exc:
-        db.session.rollback()
-        return jsonify(error=str(exc)), 400
+    except IntegrityError as exc:
+        return _save_error(exc)
+    except (TypeError, ValueError) as exc:
+        return _save_error(exc, f"Invalid value: {exc}", 400)
+
+
+@admin_bp.delete("/drives/<int:did>")
+@login_required(role="admin")
+def delete_drive(did):
+    drive = db.get_or_404(Drive, did)
+    # Applications reference the drive (FK + NOT NULL) — remove them first.
+    Application.query.filter_by(drive_id=drive.id).delete(synchronize_session=False)
+    db.session.delete(drive)
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return _save_error(exc, "Could not delete this drive.")
+    return jsonify(ok=True)
 
 
 @admin_bp.post("/drives/<int:did>/toggle")
@@ -650,12 +728,17 @@ def set_application_status(aid):
         return jsonify(error="Invalid status"), 400
     app_row = db.get_or_404(Application, aid)
     app_row.status = new_status
-    # Mirror onto the student's overall placement status
+    # Mirror onto the student's overall placement status, recomputed from all
+    # of their applications so later transitions (e.g. select → rejected) roll
+    # the mirror back instead of leaving a stale "selected".
     student = app_row.student
-    if new_status == "selected":
+    statuses = {a.status for a in Application.query.filter_by(student_id=student.id)}
+    if "selected" in statuses:
         student.status = "selected"
-    elif new_status == "shortlisted" and student.status == "unplaced":
+    elif "shortlisted" in statuses:
         student.status = "shortlisted"
+    else:
+        student.status = "unplaced"
     db.session.commit()
     return jsonify(application=_application_dict(app_row))
 
@@ -729,15 +812,17 @@ def _export_frame(entity):
             "graduation_year": s.graduation_year,
             "skills": ", ".join(s.skill_list), "status": s.status,
         } for s in Student.query.order_by(Student.roll_no)]
-        return pd.DataFrame(rows)
+        return pd.DataFrame([{k: _csv_safe(v) for k, v in r.items()} for r in rows])
     if entity == "companies":
         return pd.DataFrame([{
-            "name": c.name, "industry": c.industry, "website": c.website,
-            "hr_email": c.hr_email, "drives_count": c.drives.count(),
+            "name": _csv_safe(c.name), "industry": _csv_safe(c.industry),
+            "website": _csv_safe(c.website),
+            "hr_email": _csv_safe(c.hr_email), "drives_count": c.drives.count(),
         } for c in Company.query.order_by(Company.name)])
     if entity == "drives":
         return pd.DataFrame([{
-            "id": d.id, "title": d.title, "company": d.company.name, "role": d.role,
+            "id": d.id, "title": _csv_safe(d.title), "company": _csv_safe(d.company.name),
+            "role": _csv_safe(d.role),
             "package_lpa": d.package_lpa, "min_cgpa": d.min_cgpa,
             "eligible_departments": d.eligible_departments or "",
             "eligible_programs": d.eligible_programs or "",
@@ -748,9 +833,9 @@ def _export_frame(entity):
         } for d in Drive.query.order_by(Drive.drive_date)])
     # applications
     return pd.DataFrame([{
-        "id": a.id, "student": a.student.name, "roll_no": a.student.roll_no,
-        "department": a.student.department, "company": a.drive.company.name,
-        "role": a.drive.role, "status": a.status,
+        "id": a.id, "student": _csv_safe(a.student.name), "roll_no": a.student.roll_no,
+        "department": a.student.department, "company": _csv_safe(a.drive.company.name),
+        "role": _csv_safe(a.drive.role), "status": a.status,
         "applied_at": a.applied_at.strftime("%d %b %Y") if a.applied_at else "",
     } for a in Application.query.order_by(Application.applied_at.desc())])
 

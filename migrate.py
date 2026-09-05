@@ -7,12 +7,16 @@ schema; this script only patches older databases and backfills demo data.
 2. ALTER students.program / drives.eligible_programs (if missing)
 3. Purge the retired BCA program (rows, drive eligibility, enum label)
 4. Stamp deadlines on drives that don't have one
-5. Backfill a login User (role=student, password = roll_no lowercase)
+5. Backfill a login User (role=student) with a random one-time temp password
 6. Seed sample notices when empty
 
 Run: ./venv/bin/python migrate.py
+
+The script prints every temp password it issues; hand them to students and
+redirect them to change it after first login.
 """
 import random
+import secrets
 from datetime import date, timedelta
 
 from sqlalchemy import text
@@ -171,22 +175,27 @@ with app.app_context():
         stamped += 1
     print(f"Stamped deadlines on {stamped} drive(s).")
 
-    # 4 · student logins
+    # 4 · student logins — random one-time temp passwords, printed for handover
     created = 0
+    issued = []
     for student in Student.query.all():
         if student.user_id:
             continue
+        temp_password = secrets.token_urlsafe(8)
         user = User(
             email=student.email,
-            password_hash=generate_password_hash(student.roll_no.lower()),
+            password_hash=generate_password_hash(temp_password),
             name=student.name,
             role="student",
         )
         db.session.add(user)
         db.session.flush()
         student.user_id = user.id
+        issued.append((student.email, temp_password))
         created += 1
     print(f"Created {created} student login(s).")
+    for email, pw in issued:
+        print(f"  {email}  temp password: {pw}")
 
     # 5 · sample notices (only when none exist yet)
     if Notice.query.count() == 0:

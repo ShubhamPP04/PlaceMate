@@ -3,9 +3,19 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' }
 // Local Vite proxies /api → Flask. On Vercel set VITE_API_URL to the API origin.
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
+// Set on login, cleared on logout. Lets request() distinguish "session
+// expired mid-app" (redirect to /login) from "not logged in yet".
+const AUTHED_KEY = 'pm-authed'
+
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}/api${path}`, { credentials: 'include', ...options })
   const data = await res.json().catch(() => ({}))
+  if (res.status === 401 && sessionStorage.getItem(AUTHED_KEY) && !path.startsWith('/auth')) {
+    // Cookie died while we thought we were logged in — go back to login.
+    sessionStorage.removeItem(AUTHED_KEY)
+    window.location.assign('/login')
+    return new Promise(() => {}) // never resolves; navigation is underway
+  }
   if (!res.ok) {
     throw new Error(data.error || `Request failed (${res.status})`)
   }
@@ -14,8 +24,11 @@ async function request(path, options = {}) {
 
 export const api = {
   login: (email, password) =>
-    request('/auth/login', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ email, password }) }),
-  logout: () => request('/auth/logout', { method: 'POST' }),
+    request('/auth/login', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ email, password }) })
+      .then((d) => { sessionStorage.setItem(AUTHED_KEY, '1'); return d }),
+  logout: () =>
+    request('/auth/logout', { method: 'POST' })
+      .finally(() => sessionStorage.removeItem(AUTHED_KEY)),
   me: () => request('/auth/me'),
   changePassword: (body) => request('/auth/password', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
 

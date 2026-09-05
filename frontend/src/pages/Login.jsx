@@ -5,8 +5,8 @@ import { ThemeToggle } from '../components/Theme.jsx'
 
 export default function Login({ onLogin }) {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@placemate.edu')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 

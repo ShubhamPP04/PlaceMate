@@ -133,3 +133,34 @@ Required columns: `roll_no, name, email, department`. Optional: `phone, cgpa,
 graduation_year, skills`. Rows with missing/duplicate roll-no or email are skipped and
 reported back as `{created, skipped:[{row, error}]}`. A template is downloadable from
 the Students page.
+
+## Security & deployment notes
+
+- **`SECRET_KEY` is required in production.** The backend refuses to start
+  without it when `VERCEL`/`FRONTEND_ORIGIN` is set (dev fallback only works
+  locally). Sessions are signed with it; a predictable key makes them forgeable.
+- **Set `ADMIN_PASSWORD` before the first backend start.** The first-run seed
+  creates `admin@placemate.edu`; with no `ADMIN_PASSWORD` it falls back to
+  `admin123` and logs a warning. Change the password after first login either way.
+- **Student logins get random one-time temp passwords.** Creating a student
+  (form or CSV import) and `POST /students/:id/reset-password` return a random
+  `temp_password`/`temp_passwords` exactly once — hand it to the student and have
+  them change it via `/api/auth/password` after first login. Passwords are never
+  derived from roll numbers.
+- **Deleting is cascading:** a student delete removes their applications and
+  login; a company delete removes its drives and their applications; a drive
+  delete (`DELETE /api/admin/drives/:id`) removes its applications. These are
+  destructive — the UI should confirm.
+- **CSV exports** neutralize leading `= + - @` cells so pasted formulas can't
+  execute in Excel/Sheets.
+- Required env vars in production: `DATABASE_URL`, `SECRET_KEY`,
+  `FRONTEND_ORIGIN` (exact UI origin for credentialed CORS cookies),
+  `ADMIN_PASSWORD` (first boot only).
+
+## API additions
+
+- `DELETE /api/admin/drives/:id` — delete a drive and its applications.
+- `POST /api/admin/students/import` response now includes
+  `temp_passwords: [{email, temp_password}]` for every provisioned login.
+- Duplicate/conflicting writes return `409` with a friendly message instead of
+  leaking raw DB errors; invalid program values are rejected with `400`.

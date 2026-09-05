@@ -1,10 +1,17 @@
-"""Seed placement_db (PostgreSQL) with demo data. Run: ./venv/bin/python seed.py"""
+"""Seed placement_db (PostgreSQL) with demo data. Run: ./venv/bin/python seed.py
+
+Student portal logins are provisioned with random one-time temp passwords,
+printed at the end of the run — redirect to a file if you need to keep them.
+"""
 import random
+import secrets
 from datetime import date, datetime, timedelta
+
+from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from app.models import Application, Company, Drive, Notice, Student
+from app.models import Application, Company, Drive, Notice, Student, User
 
 app = create_app()
 
@@ -136,6 +143,23 @@ with app.app_context():
                  "hall. Sign up with your class advisor.",
             audience="students",
         ))
+        # Student portal logins — random one-time temp passwords.
+        issued = []
+        for s in students:
+            temp_password = secrets.token_urlsafe(8)
+            user = User(
+                email=s.email,
+                password_hash=generate_password_hash(temp_password),
+                name=s.name,
+                role="student",
+            )
+            db.session.add(user)
+            db.session.flush()
+            s.user_id = user.id
+            issued.append((s.email, temp_password))
         db.session.commit()
         print(f"Seeded: {len(companies)} companies, {len(drives)} drives, "
               f"{len(students)} students, {n_apps} applications, 3 notices.")
+        print(f"Provisioned {len(issued)} student login(s); temp passwords below.")
+        for email, pw in issued:
+            print(f"  {email}  {pw}")

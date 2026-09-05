@@ -349,30 +349,49 @@ body {
    displacement map (flutes displace along X only, constant down Y). */
 .stage-aurora b {
   position: absolute;
-  inset: -2%;
-  background-image:
-    repeating-linear-gradient(90deg,
-      rgba(255, 255, 255, 0.028) 0px,
-      rgba(255, 255, 255, 0.085) 5px,
-      rgba(255, 255, 255, 0.028) 10px,
-      rgba(0, 0, 0, 0.05) 14px,
-      rgba(255, 255, 255, 0.028) 18px),
-    linear-gradient(180deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.07) 18%,
-      transparent 32%,
-      transparent 55%,
-      rgba(255, 255, 255, 0.05) 72%,
-      transparent 88%);
-  background-size: 18px 100%, 100% 240%;
-  animation: flute-sweep 26s linear infinite;
+  inset: -40px; /* bleed so the rib slide never exposes an edge */
+  overflow: hidden;
   mix-blend-mode: soft-light;
   pointer-events: none;
-  will-change: background-position;
+}
+.stage-aurora b::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* ribs tile wider than the band by one flute cycle; transform slides it
+     right one full 18px cycle per loop — GPU-composited, sub-pixel smooth,
+     loops seamlessly so the vertical lines march sideways forever. */
+  background: repeating-linear-gradient(90deg,
+    rgba(255, 255, 255, 0.028) 0px,
+    rgba(255, 255, 255, 0.085) 5px,
+    rgba(255, 255, 255, 0.028) 10px,
+    rgba(0, 0, 0, 0.05) 14px,
+    rgba(255, 255, 255, 0.028) 18px);
+  will-change: transform;
+  animation: flute-drift 2.6s linear infinite;
+}
+.stage-aurora b::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* specular sheen traveling down the flutes (unchanged) */
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.07) 18%,
+    transparent 32%,
+    transparent 55%,
+    rgba(255, 255, 255, 0.05) 72%,
+    transparent 88%);
+  background-size: 100% 240%;
+  animation: flute-sweep 26s linear infinite;
+}
+@keyframes flute-drift {
+  from { transform: translate3d(-18px, 0, 0); }
+  to   { transform: translate3d(0, 0, 0); }
 }
 @keyframes flute-sweep {
-  from { background-position: 0 0, 0 0%; }
-  to   { background-position: 0 0, 0 240%; }
+  from { background-position: 0 0%; }
+  to   { background-position: 0 240%; }
 }
 /* Chromium: true refraction — flutes displace the backdrop sideways.
    Static filter (no per-frame cost); the sweep above carries the motion. */
@@ -792,7 +811,6 @@ body {
 .rise-d4 { animation-delay: 0.12s; }
 .rise-d5 { animation-delay: 0.15s; }
 .rise-d6 { animation-delay: 0.18s; }
-@keyframes rise-in { to { opacity: 1; transform: translateY(0); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -800,8 +818,9 @@ body {
   /* these loop forever, so a near-zero duration would strobe rather than stop */
   .stage-aurora span,
   .stage-aurora i,
-  .stage-aurora b { animation: none !important; }
-  /* fireflies frozen mid-opacity look like specks of dirt — hide them */
+  .stage-aurora b,
+  .stage-aurora b::before,
+  .stage-aurora b::after { animation: none !important; }
   .stage-aurora i { display: none; }
 }
 

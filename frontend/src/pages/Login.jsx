@@ -27,7 +27,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="relative grid min-h-[100dvh] place-items-center px-4 py-10" style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top))', paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))' }}>
-      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /><span /></div>
+      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /><span /><i /><i /><i /><i /><i /><i /><i /><i /></div>
 
       <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5" style={{ top: 'max(1rem, env(safe-area-inset-top))' }}>
         <ThemeToggle />
@@ -86,9 +86,6 @@ export default function Login({ onLogin }) {
               <span className="btn-icon-wrap">→</span>
             </button>
 
-            <p className="pt-1 text-center text-[11px] text-ink-low">
-              Admin · admin@placemate.edu / admin123 &nbsp;·&nbsp; Student · roll&nbsp;no built from profile
-            </p>
           </form>
         </div>
 

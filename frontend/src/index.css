@@ -70,6 +70,8 @@
   --aurora-3: rgba(45, 212, 191, 0.2);
   --aurora-4: rgba(34, 197, 94, 0.16);
   --aurora-blur: 80px;
+  --firefly: rgba(190, 242, 100, 0.9);
+  --firefly-glow: rgba(163, 230, 53, 0.55);
   --stage-image:
     radial-gradient(1100px 640px at 14% -8%, var(--stage-glow-a), transparent 58%),
     radial-gradient(900px 560px at 96% 108%, var(--stage-glow-b), transparent 52%),
@@ -131,8 +133,9 @@
   --aurora-1: rgba(34, 197, 94, 0.42);
   --aurora-2: rgba(163, 230, 53, 0.34);
   --aurora-3: rgba(45, 212, 191, 0.32);
-  --aurora-4: rgba(16, 185, 129, 0.22);
   --aurora-blur: 60px;
+  --firefly: rgba(101, 163, 13, 0.75);
+  --firefly-glow: rgba(132, 204, 22, 0.4);
 }
 
 @theme inline {
@@ -248,6 +251,97 @@ body {
 @keyframes aurora-sweep-c {
   from { transform: translate3d(-30vw, 0, 0) scale(0.95); }
   to   { transform: translate3d(75vw, 0, 0) scale(1.2); }
+}
+
+/* Blobs breathe while sweeping — opacity only, so both animations stay on
+   the compositor (transform is owned by the sweep keyframes). */
+@keyframes aurora-breathe {
+  from { opacity: 0.75; }
+  to   { opacity: 1; }
+}
+.stage-aurora span:nth-child(1) { animation: aurora-sweep-a 22s ease-in-out infinite alternate, aurora-breathe 11s ease-in-out infinite alternate; }
+.stage-aurora span:nth-child(2) { animation: aurora-sweep-b 28s ease-in-out infinite alternate, aurora-breathe 17s ease-in-out infinite alternate; }
+.stage-aurora span:nth-child(3) { animation: aurora-sweep-c 34s ease-in-out infinite alternate, aurora-breathe 13s ease-in-out infinite alternate; }
+.stage-aurora span:nth-child(4) { animation: aurora-sweep-b 40s ease-in-out infinite alternate, aurora-breathe 19s ease-in-out infinite alternate; }
+
+/* ── fireflies ──
+   Tiny glowing motes rising through the stage — the "forest night" motion
+   signature. Transform+opacity only; negative delays populate the field
+   instantly (no empty first load). Glow pulses on ::before so the rise and
+   the pulse never fight over the same transform. */
+.stage-aurora i {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--firefly);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.stage-aurora i::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: var(--firefly-glow);
+  filter: blur(3px);
+  animation: firefly-pulse var(--pulse, 4.5s) ease-in-out infinite;
+}
+@keyframes firefly-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.7); }
+  50%      { opacity: 0.95; transform: scale(1.35); }
+}
+@keyframes firefly-rise-a {
+  0%   { transform: translate3d(0, 108vh, 0); opacity: 0; }
+  7%   { opacity: 0.9; }
+  30%  { transform: translate3d(5vw, 74vh, 0); }
+  55%  { transform: translate3d(-4vw, 40vh, 0); }
+  80%  { transform: translate3d(4vw, 12vh, 0); }
+  93%  { opacity: 0.75; }
+  100% { transform: translate3d(-2vw, -6vh, 0); opacity: 0; }
+}
+@keyframes firefly-rise-b {
+  0%   { transform: translate3d(0, 108vh, 0); opacity: 0; }
+  9%   { opacity: 0.8; }
+  28%  { transform: translate3d(-6vw, 70vh, 0); }
+  52%  { transform: translate3d(4vw, 38vh, 0); }
+  78%  { transform: translate3d(-5vw, 10vh, 0); }
+  94%  { opacity: 0.6; }
+  100% { transform: translate3d(2vw, -6vh, 0); opacity: 0; }
+}
+@keyframes firefly-rise-c {
+  0%   { transform: translate3d(0, 108vh, 0); opacity: 0; }
+  6%   { opacity: 0.85; }
+  33%  { transform: translate3d(3vw, 76vh, 0); }
+  58%  { transform: translate3d(6vw, 44vh, 0); }
+  82%  { transform: translate3d(-3vw, 14vh, 0); }
+  95%  { opacity: 0.7; }
+  100% { transform: translate3d(-5vw, -6vh, 0); opacity: 0; }
+}
+.stage-aurora i:nth-of-type(3n+1) { animation: firefly-rise-a var(--d, 30s) linear infinite; }
+.stage-aurora i:nth-of-type(3n+2) { animation: firefly-rise-b var(--d, 30s) linear infinite; }
+.stage-aurora i:nth-of-type(3n)   { animation: firefly-rise-c var(--d, 30s) linear infinite; }
+.stage-aurora i:nth-of-type(1) { left: 7%;  --d: 34s; --pulse: 4.2s; animation-delay: -6s; }
+.stage-aurora i:nth-of-type(2) { left: 21%; width: 3px; height: 3px; --d: 26s; --pulse: 3.4s; animation-delay: -17s; }
+.stage-aurora i:nth-of-type(3) { left: 35%; width: 5px; height: 5px; --d: 41s; --pulse: 5.5s; animation-delay: -29s; }
+.stage-aurora i:nth-of-type(4) { left: 48%; --d: 30s; --pulse: 4s; animation-delay: -11s; }
+.stage-aurora i:nth-of-type(5) { left: 62%; width: 3px; height: 3px; --d: 23s; --pulse: 3.1s; animation-delay: -21s; }
+.stage-aurora i:nth-of-type(6) { left: 74%; --d: 37s; --pulse: 5s; animation-delay: -3s; }
+.stage-aurora i:nth-of-type(7) { left: 86%; width: 5px; height: 5px; --d: 44s; --pulse: 6s; animation-delay: -33s; }
+.stage-aurora i:nth-of-type(8) { left: 93%; width: 3px; height: 3px; --d: 27s; --pulse: 3.8s; animation-delay: -14s; }
+
+/* ── film grain ──
+   Static noise tile over the stage — texture without motion cost. */
+.stage-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  pointer-events: none;
 }
 
 /* ── liquid glass ──
@@ -654,7 +748,10 @@ body {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   .rise { opacity: 1; transform: none; }
   /* these loop forever, so a near-zero duration would strobe rather than stop */
-  .stage-aurora span { animation: none !important; }
+  .stage-aurora span,
+  .stage-aurora i { animation: none !important; }
+  /* fireflies frozen mid-opacity look like specks of dirt — hide them */
+  .stage-aurora i { display: none; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

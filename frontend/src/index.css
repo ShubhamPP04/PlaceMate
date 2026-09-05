@@ -770,9 +770,9 @@ body {
    Density comes from the row box, not the type size: 13px stays readable
    while the tighter block padding fits more rows on screen. */
 .tbl { font-size: 13px; }
+.tbl thead th { padding-block: 0 0.6rem; }
 .tbl tbody td { padding-block: 0.55rem; }
 .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
-
 .table-row { transition: background 0.15s var(--ease-out); }
 .table-row:hover { background: var(--raise); }
 .text-balance { text-wrap: balance; }
@@ -811,6 +811,7 @@ body {
 .rise-d4 { animation-delay: 0.12s; }
 .rise-d5 { animation-delay: 0.15s; }
 .rise-d6 { animation-delay: 0.18s; }
+@keyframes rise-in { to { opacity: 1; transform: translateY(0); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

@@ -341,7 +341,47 @@ body {
 .stage-aurora i:nth-of-type(6) { left: 74%; --d: 37s; --pulse: 5s; animation-delay: -3s; }
 .stage-aurora i:nth-of-type(7) { left: 86%; width: 5px; height: 5px; --d: 44s; --pulse: 6s; animation-delay: -33s; }
 .stage-aurora i:nth-of-type(8) { left: 93%; width: 3px; height: 3px; --d: 27s; --pulse: 3.8s; animation-delay: -14s; }
-
+/* ── fluted glass band ──
+   Vertical ribs (repeating-linear-gradient) with a slow specular sweep.
+   The sweep animates background-position (paint-only on a fixed 240px tile,
+   no layout) at low opacity so it reads as light crossing the flutes.
+   Chromium additionally refracts the backdrop through the shared SVG
+   displacement map (flutes displace along X only, constant down Y). */
+.stage-aurora b {
+  position: absolute;
+  inset: -2%;
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.028) 0px,
+      rgba(255, 255, 255, 0.085) 5px,
+      rgba(255, 255, 255, 0.028) 10px,
+      rgba(0, 0, 0, 0.05) 14px,
+      rgba(255, 255, 255, 0.028) 18px),
+    linear-gradient(100deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.07) 18%,
+      transparent 32%,
+      transparent 55%,
+      rgba(255, 255, 255, 0.05) 72%,
+      transparent 88%);
+  background-size: 18px 100%, 240% 100%;
+  animation: flute-sweep 26s linear infinite;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  will-change: background-position;
+}
+@keyframes flute-sweep {
+  from { background-position: 0 0, 0% 0; }
+  to   { background-position: 0 0, 240% 0; }
+}
+/* Chromium: true refraction — flutes displace the backdrop sideways.
+   Static filter (no per-frame cost); the sweep above carries the motion. */
+@supports (backdrop-filter: url(#pm-fluted)) and (not (-moz-appearance: none)) {
+  .stage-aurora b {
+    -webkit-backdrop-filter: blur(1.5px) url(#pm-fluted);
+    backdrop-filter: blur(1.5px) url(#pm-fluted);
+  }
+}
 /* ── film grain ──
    Static noise tile over the stage — texture without motion cost. */
 .stage-aurora::after {
@@ -711,7 +751,6 @@ body {
    Density comes from the row box, not the type size: 13px stays readable
    while the tighter block padding fits more rows on screen. */
 .tbl { font-size: 13px; }
-.tbl thead th { padding-block: 0 0.6rem; }
 .tbl tbody td { padding-block: 0.55rem; }
 .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -760,7 +799,8 @@ body {
   .rise { opacity: 1; transform: none; }
   /* these loop forever, so a near-zero duration would strobe rather than stop */
   .stage-aurora span,
-  .stage-aurora i { animation: none !important; }
+  .stage-aurora i,
+  .stage-aurora b { animation: none !important; }
   /* fireflies frozen mid-opacity look like specks of dirt — hide them */
   .stage-aurora i { display: none; }
 }

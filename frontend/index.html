@@ -44,6 +44,16 @@
         <feGaussianBlur in="noise" stdDeviation="2" result="blurred" />
         <feDisplacementMap in="SourceGraphic" in2="blurred" scale="52" xChannelSelector="R" yChannelSelector="G" />
       </filter>
+      <!-- Fluted (ribbed) glass: displacement varies sinusoidally along X
+           only, constant down Y — a vertical flute profile. R encodes the
+           X offset around neutral 128 (amplitude 60 → ±60px refraction at
+           scale=1), G stays 128 (no Y shift), B 128, A opaque. -->
+        <feImage x="0" y="0" width="18" height="2" result="flute_tile"
+          href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAACCAYAAABVGIzMAAAAMUlEQVR42mNoaGj4PxWIlwPxFiDeDcVboGIgOZCabCCOBGIfIHaFYh+oGEiOgVoGAQDnK1nd+PpEvQAAAABJRU5ErkJggg==" />
+        <feTile in="flute_tile" result="flutes" />
+        <feDisplacementMap in="SourceGraphic" in2="flutes" scale="1"
+          xChannelSelector="R" yChannelSelector="G" />
+      </filter>
     </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

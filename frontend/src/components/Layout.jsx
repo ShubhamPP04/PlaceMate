@@ -128,7 +128,7 @@ export default function Layout({ user, onLogout }) {
 
   return (
     <div className="relative min-h-[100dvh] md:p-6 lg:p-8">
-      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /><span /><i /><i /><i /><i /><i /><i /><i /><i /></div>
+      <div className="stage-aurora" aria-hidden="true"><span /><span /><span /><span /><i /><i /><i /><i /><i /><i /><i /><i /><b /></div>
 
       <div className="arc-shell mobile-shell grid h-[100dvh] grid-cols-1 overflow-hidden md:h-[calc(100dvh-48px)] md:grid-cols-[64px_1fr] lg:h-[calc(100dvh-64px)] lg:grid-cols-[64px_280px_1fr]">
         {/* ── desktop icon rail ── */}

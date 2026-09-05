@@ -49,6 +49,7 @@ class Student(db.Model):
 
     user = db.relationship("User", back_populates="student")
     applications = db.relationship("Application", back_populates="student", lazy="dynamic")
+    placement_records = db.relationship("PlacementRecord", back_populates="student")
 
     @property
     def skill_list(self):
@@ -88,6 +89,7 @@ class Drive(db.Model):
 
     company = db.relationship("Company", back_populates="drives")
     applications = db.relationship("Application", back_populates="drive", lazy="dynamic")
+    placement_records = db.relationship("PlacementRecord", back_populates="drive")
 
     @property
     def eligible_dept_list(self):
@@ -134,6 +136,9 @@ class Application(db.Model):
 
     student = db.relationship("Student", back_populates="applications")
     drive = db.relationship("Drive", back_populates="applications")
+    history = db.relationship("ApplicationStatusHistory", back_populates="application",
+                              order_by="ApplicationStatusHistory.created_at",
+                              cascade="all, delete-orphan")
 
 
 class Notice(db.Model):
@@ -146,3 +151,57 @@ class Notice(db.Model):
     body = db.Column(db.Text, nullable=False)
     audience = db.Column(db.Enum("all", "students", name="notice_audience"), default="students")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+PLACEMENT_LADDER_LPA = 2.0  # a placed student may only sit for drives paying this much above their best offer
+
+
+class ApplicationStatusHistory(db.Model):
+    """Every status transition of an application — the audit trail / round timeline."""
+
+    __tablename__ = "application_status_history"
+
+    id = db.Column(db.Integer, primary_key=True)
+    application_id = db.Column(db.Integer, db.ForeignKey("applications.id"), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False)  # mirrors application_status values
+    note = db.Column(db.Text)
+    changed_by = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    application = db.relationship("Application", back_populates="history")
+
+
+class PlacementRecord(db.Model):
+    """An actual offer — created automatically when an application is marked selected."""
+
+    __tablename__ = "placement_records"
+    __table_args__ = (db.UniqueConstraint("student_id", "drive_id"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False, index=True)
+    drive_id = db.Column(db.Integer, db.ForeignKey("drives.id"), nullable=False, index=True)
+    application_id = db.Column(db.Integer, db.ForeignKey("applications.id"))
+    package_lpa = db.Column(db.Float)  # actual offered CTC; defaults to the drive's advertised package
+    offered_on = db.Column(db.Date, default=date.today)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    student = db.relationship("Student", back_populates="placement_records")
+    drive = db.relationship("Drive", back_populates="placement_records")
+
+
+def top_offer_lpa(student_id):
+    """Best actual offer package (LPA) for a student, or None."""
+    return db.session.query(db.func.max(PlacementRecord.package_lpa)).filter(
+        PlacementRecord.student_id == student_id
+    ).scalar()
+
+
+def placement_policy_reason(top_offer, drive):
+    """Reason a placed student cannot sit for this drive, or None if allowed."""
+    if top_offer is None or not drive.package_lpa:
+        return None
+    floor = top_offer + PLACEMENT_LADDER_LPA
+    if drive.package_lpa >= floor:
+        return None
+    return (f"Already placed at {top_offer:g} LPA — this drive pays {drive.package_lpa:g} LPA "
+            f"(needs ≥ {floor:g} LPA)")

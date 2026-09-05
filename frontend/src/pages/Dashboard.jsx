@@ -112,7 +112,7 @@ export default function Dashboard() {
           <div key={s.label} className="arc-card flex h-full min-h-[120px] flex-col justify-between p-4 sm:min-h-[132px] sm:p-5">
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold uppercase leading-none tracking-wide text-ink-low">{s.label}</p>
-              <span className="pill pill-applied leading-none">↑ {s.delta != null ? Math.abs(s.delta) + '%' : 'live'}</span>
+              <span className="pill pill-applied leading-none">{s.delta != null ? (s.delta < 0 ? '↓ ' : '↑ ') + Math.abs(s.delta) + '%' : 'live'}</span>
             </div>
             <p className="kpi-num font-display text-[40px] font-extrabold leading-none tabular-nums text-ink-hi">{s.value}</p>
             <p className="text-[11px] leading-none text-ink-low">{s.sub}</p>

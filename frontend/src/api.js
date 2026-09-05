@@ -34,6 +34,8 @@ export const api = {
 
   dashboard: () => request('/admin/dashboard'),
   students: (params = '') => request(`/admin/students${params}`),
+  student: (id) => request(`/admin/students/${id}`),
+  updateOffer: (sid, rid, body) => request(`/admin/students/${sid}/offers/${rid}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   addStudent: (body) => request('/admin/students', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   updateStudent: (id, body) => request(`/admin/students/${id}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   deleteStudent: (id) => request(`/admin/students/${id}`, { method: 'DELETE' }),
@@ -70,6 +72,7 @@ export const api = {
   portal: {
     summary: () => request('/portal/summary'),
     drives: () => request('/portal/drives'),
+    drive: (id) => request(`/portal/drives/${id}`),
     apply: (id) => request(`/portal/drives/${id}/apply`, { method: 'POST' }),
     applications: () => request('/portal/applications'),
     profile: (body) => request('/portal/profile', { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(body) }),

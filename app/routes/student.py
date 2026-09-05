@@ -1,4 +1,5 @@
 """Student portal API — profile, drives with eligibility, applications, notices."""
+from collections import defaultdict
 from datetime import date
 
 from flask import Blueprint, g, jsonify, request
@@ -7,7 +8,8 @@ from sqlalchemy.orm import joinedload
 
 from .auth import login_required
 from ..extensions import db
-from ..models import Application, Drive, Notice, Student
+from ..models import (Application, ApplicationStatusHistory, Drive, Notice, Student,
+                      placement_policy_reason, top_offer_lpa)
 
 portal_bp = Blueprint("portal", __name__)
 
@@ -28,16 +30,22 @@ def _profile_dict(s: Student):
     }
 
 
-def _drive_dict_for(s: Student, d: Drive, application: Application | None = None):
+def _drive_dict_for(s: Student, d: Drive, application: Application | None = None,
+                    policy: str | None = None):
     eligible, reason = d.eligibility_for(s)
+    # A placed student is additionally gated by the offer-ladder policy.
+    if eligible and policy:
+        eligible, reason = False, policy
     applied = application is not None
     return {
         "id": d.id,
         "title": d.title,
         "company_name": d.company.name,
+        "company_website": d.company.website,
         "role": d.role,
         "package_lpa": d.package_lpa,
         "min_cgpa": d.min_cgpa,
+        "eligible_departments": d.eligible_dept_list,
         "eligible_programs": d.eligible_program_list,
         "drive_date": d.drive_date.isoformat() if d.drive_date else None,
         "application_deadline": d.application_deadline.isoformat() if d.application_deadline else None,
@@ -94,16 +102,28 @@ def drives():
         return jsonify(error="Student profile not found. Contact the placement cell."), 404
 
     applied = {a.drive_id: a for a in Application.query.filter_by(student_id=student.id)}
+    top = top_offer_lpa(student.id)
     rows = [
-        _drive_dict_for(student, d, applied.get(d.id))
-        for d in Drive.query.options(joinedload(Drive.company))
-        .order_by(Drive.drive_date).all()
+        _drive_dict_for(student, d, applied.get(d.id), placement_policy_reason(top, d))
+        for d in Drive.query.options(joinedload(Drive.company)).order_by(Drive.drive_date).all()
     ]
     # Drives a student can still act on come first, soonest deadline leading;
     # closed ones stay visible underneath for reference. is_accepting is a
     # Python property, so this can't be an ORDER BY.
     rows.sort(key=lambda r: (not r["accepting"], r["application_deadline"] or "9999-12-31"))
     return jsonify(drives=rows)
+
+
+@portal_bp.get("/drives/<int:did>")
+@login_required(role="student")
+def drive_detail(did):
+    student = Student.query.filter_by(user_id=g.user_id).first()
+    if not student:
+        return jsonify(error="Student profile not found. Contact the placement cell."), 404
+    drive = db.get_or_404(Drive, did)
+    application = Application.query.filter_by(student_id=student.id, drive_id=drive.id).first()
+    policy = placement_policy_reason(top_offer_lpa(student.id), drive)
+    return jsonify(drive=_drive_dict_for(student, drive, application, policy))
 
 
 @portal_bp.post("/drives/<int:did>/apply")
@@ -120,9 +140,17 @@ def apply(did):
     if not eligible:
         return jsonify(error=f"You are not eligible: {reason}."), 400
 
+    policy = placement_policy_reason(top_offer_lpa(student.id), drive)
+    if policy:
+        return jsonify(error=f"Placement policy: {policy}"), 400
+
     app_row = Application(student_id=student.id, drive_id=drive.id, status="applied")
     db.session.add(app_row)
     try:
+        db.session.flush()  # need the id before the history row can reference it
+        db.session.add(ApplicationStatusHistory(
+            application_id=app_row.id, status="applied", changed_by=g.user_id,
+        ))
         db.session.commit()
     except IntegrityError:
         # Lost a race with a concurrent request hitting the same unique pair.
@@ -139,6 +167,16 @@ def applications():
         .filter_by(student_id=student.id if student else -1) \
         .join(Drive) \
         .order_by(Application.applied_at.desc()).all()
+    history = defaultdict(list)
+    if rows:
+        hs = (ApplicationStatusHistory.query
+              .filter(ApplicationStatusHistory.application_id.in_([a.id for a in rows]))
+              .order_by(ApplicationStatusHistory.created_at).all())
+        for h in hs:
+            history[h.application_id].append({
+                "status": h.status, "note": h.note,
+                "created_at": h.created_at.strftime("%d %b %Y"),
+            })
     return jsonify(
         applications=[{
             "id": a.id,
@@ -150,6 +188,7 @@ def applications():
             "drive_date": a.drive.drive_date.isoformat() if a.drive.drive_date else None,
             "status": a.status,
             "applied_at": a.applied_at.strftime("%d %b %Y"),
+            "history": history.get(a.id, []),
         } for a in rows]
     )
 

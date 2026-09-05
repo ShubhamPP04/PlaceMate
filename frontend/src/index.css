@@ -68,6 +68,7 @@
   --lime: #e8ff66;
   --lime-ink: #1a2600;
   --coral: #f87171;
+  --amber: #d9a13b;
   --shadow-card: var(--glass-card-shadow);
   /* animated stage backdrop — lives behind the shell, never under data */
   --aurora-1: rgba(74, 222, 128, 0.28);
@@ -761,10 +762,6 @@ body {
 }
 .msg-row:hover { background: var(--raise); }
 .msg-row.active { background: var(--green-soft); }
-
-/* ── meter ── */
-.meter-track { height: 6px; border-radius: 9999px; background: var(--raise); overflow: hidden; }
-.meter-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--green), var(--lime)); transition: width 1.1s var(--ease-out); }
 
 /* ── data tables ──
    Density comes from the row box, not the type size: 13px stays readable

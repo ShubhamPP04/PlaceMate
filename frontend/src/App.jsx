@@ -12,9 +12,11 @@ import DriveDetail from './pages/DriveDetail'
 import Login from './pages/Login'
 import Notices from './pages/Notices'
 import PortalApplications from './pages/PortalApplications'
+import PortalDriveDetail from './pages/PortalDriveDetail'
 import PortalDrives from './pages/PortalDrives'
 import PortalHome from './pages/PortalHome'
 import PortalProfile from './pages/PortalProfile'
+import StudentDetail from './pages/StudentDetail'
 import Students from './pages/Students'
 
 /* Redirect a freshly logged-in user to the right hub by role. */
@@ -50,6 +52,7 @@ export default function App() {
             <>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/students" element={<Students />} />
+              <Route path="/students/:id" element={<StudentDetail />} />
               <Route path="/companies" element={<Companies />} />
               <Route path="/companies/:id" element={<CompanyDetail />} />
               <Route path="/drives" element={<Drives />} />
@@ -65,6 +68,7 @@ export default function App() {
             <>
               <Route path="/portal" element={<PortalHome />} />
               <Route path="/portal/drives" element={<PortalDrives />} />
+              <Route path="/portal/drives/:id" element={<PortalDriveDetail />} />
               <Route path="/portal/applications" element={<PortalApplications />} />
               <Route path="/portal/profile" element={<PortalProfile />} />
             </>

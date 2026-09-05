@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 import pandas as pd
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, g, jsonify, request, send_file
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
@@ -30,7 +30,8 @@ def _csv_safe(v):
 
 from .auth import login_required
 from ..extensions import db
-from ..models import PROGRAMS, Application, Company, Drive, Notice, Student, User
+from ..models import (PROGRAMS, Application, ApplicationStatusHistory, Company, Drive,
+                      Notice, PlacementRecord, Student, User, placement_policy_reason)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -102,6 +103,19 @@ def _application_dict(a: Application):
     }
 
 
+def _offer_dict(r: PlacementRecord):
+    return {
+        "id": r.id,
+        "drive_id": r.drive_id,
+        "title": r.drive.title,
+        "role": r.drive.role,
+        "company_name": r.drive.company.name,
+        "package_lpa": r.package_lpa,
+        "drive_package_lpa": r.drive.package_lpa,
+        "offered_on": r.offered_on.isoformat() if r.offered_on else None,
+    }
+
+
 # ---------------------------------------------------------------- dashboard
 
 @admin_bp.get("/dashboard")
@@ -123,10 +137,17 @@ def dashboard():
     active_drives = sum(1 for d in drives if d.is_active)
     placement_pct = round(selected / total_students * 100, 1) if total_students else 0.0
 
-    selected_packages = [a.drive.package_lpa for a in applications
-                         if a.status == "selected" and a.drive.package_lpa]
-    highest_package = max(selected_packages) if selected_packages else None
-    avg_package_overall = round(sum(selected_packages) / len(selected_packages), 2) if selected_packages else None
+    # Actual offers (PlacementRecord) are the source of truth for packages;
+    # advertised drive packages are the fallback for pre-offer data.
+    offer_packages = [r.package_lpa for r in PlacementRecord.query.all() if r.package_lpa]
+    if offer_packages:
+        highest_package = max(offer_packages)
+        avg_package_overall = round(sum(offer_packages) / len(offer_packages), 2)
+    else:
+        selected_packages = [a.drive.package_lpa for a in applications
+                             if a.status == "selected" and a.drive.package_lpa]
+        highest_package = max(selected_packages) if selected_packages else None
+        avg_package_overall = round(sum(selected_packages) / len(selected_packages), 2) if selected_packages else None
 
     week_ago = date.today() - timedelta(days=7)
     prev_week_start = week_ago - timedelta(days=7)
@@ -288,7 +309,13 @@ def delete_student(sid):
     student = db.get_or_404(Student, sid)
     # Children first: applications reference this student (FK + NOT NULL),
     # then the linked login User so no orphaned account survives the delete.
+    app_ids = [row.id for row in Application.query.with_entities(Application.id).filter_by(student_id=student.id)]
+    if app_ids:
+        ApplicationStatusHistory.query.filter(
+            ApplicationStatusHistory.application_id.in_(app_ids)
+        ).delete(synchronize_session=False)
     Application.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    PlacementRecord.query.filter_by(student_id=student.id).delete(synchronize_session=False)
     user = db.session.get(User, student.user_id) if student.user_id else None
     if user:
         db.session.delete(user)
@@ -368,6 +395,35 @@ def update_student(sid):
         return _save_error(exc, "Another student already has that roll number or email.")
     except (TypeError, ValueError) as exc:
         return _save_error(exc, f"Invalid value: {exc}")
+
+
+@admin_bp.get("/students/<int:sid>")
+@login_required(role="admin")
+def student_detail(sid):
+    student = db.get_or_404(Student, sid)
+    return jsonify(
+        student=_student_dict(student),
+        applications=[_application_dict(a) for a in student.applications.order_by(Application.applied_at.desc())],
+        offers=[_offer_dict(r) for r in student.placement_records],
+    )
+
+
+@admin_bp.put("/students/<int:sid>/offers/<int:rid>")
+@login_required(role="admin")
+def update_offer(sid, rid):
+    record = db.get_or_404(PlacementRecord, rid)
+    if record.student_id != sid:
+        return jsonify(error="Offer not found for this student"), 404
+    data = request.get_json(silent=True) or {}
+    try:
+        package = float(data.get("package_lpa"))
+    except (TypeError, ValueError):
+        return jsonify(error="package_lpa must be a number"), 400
+    if package < 0:
+        return jsonify(error="package_lpa cannot be negative"), 400
+    record.package_lpa = package
+    db.session.commit()
+    return jsonify(offer=_offer_dict(record))
 
 
 @admin_bp.post("/students/<int:sid>/reset-password")
@@ -523,6 +579,15 @@ def delete_company(cid):
     # drives (FK drives.company_id is NOT NULL), then the company itself.
     drive_ids = [d.id for d in company.drives]
     if drive_ids:
+        app_ids = [
+            row.id for row in Application.query.with_entities(Application.id)
+            .filter(Application.drive_id.in_(drive_ids))
+        ]
+        if app_ids:
+            ApplicationStatusHistory.query.filter(
+                ApplicationStatusHistory.application_id.in_(app_ids)
+            ).delete(synchronize_session=False)
+        PlacementRecord.query.filter(PlacementRecord.drive_id.in_(drive_ids)).delete(synchronize_session=False)
         Application.query.filter(Application.drive_id.in_(drive_ids)).delete(synchronize_session=False)
         Drive.query.filter(Drive.id.in_(drive_ids)).delete(synchronize_session=False)
     db.session.delete(company)
@@ -550,7 +615,10 @@ def list_drives():
             Company.name.ilike(f"%{q}%"),
         ))
     if company_id:
-        query = query.filter(Drive.company_id == int(company_id))
+        try:
+            query = query.filter(Drive.company_id == int(company_id))
+        except ValueError:
+            return jsonify(error="Invalid company filter"), 400
     if status == "active":
         query = query.filter(Drive.is_active.is_(True))
     elif status == "closed":
@@ -648,6 +716,12 @@ def update_drive(did):
 def delete_drive(did):
     drive = db.get_or_404(Drive, did)
     # Applications reference the drive (FK + NOT NULL) — remove them first.
+    app_ids = [row.id for row in Application.query.with_entities(Application.id).filter_by(drive_id=drive.id)]
+    if app_ids:
+        ApplicationStatusHistory.query.filter(
+            ApplicationStatusHistory.application_id.in_(app_ids)
+        ).delete(synchronize_session=False)
+    PlacementRecord.query.filter_by(drive_id=drive.id).delete(synchronize_session=False)
     Application.query.filter_by(drive_id=drive.id).delete(synchronize_session=False)
     db.session.delete(drive)
     try:
@@ -672,16 +746,23 @@ def drive_targets(did):
     """Students eligible for this drive who have not yet applied."""
     drive = db.get_or_404(Drive, did)
     applied_ids = {a.student_id for a in drive.applications}
+    best_offers = dict(
+        db.session.query(PlacementRecord.student_id, db.func.max(PlacementRecord.package_lpa))
+        .group_by(PlacementRecord.student_id).all()
+    )
     rows = []
     for s in Student.query.order_by(Student.roll_no):
         if s.id in applied_ids:
             continue
         eligible, reason = drive.eligibility_for(s)
-        if eligible:
-            rows.append({
-                "id": s.id, "roll_no": s.roll_no, "name": s.name,
-                "department": s.department, "cgpa": s.cgpa, "skills": s.skill_list,
-            })
+        if not eligible:
+            continue
+        if placement_policy_reason(best_offers.get(s.id), drive):
+            continue
+        rows.append({
+            "id": s.id, "roll_no": s.roll_no, "name": s.name,
+            "department": s.department, "cgpa": s.cgpa, "skills": s.skill_list,
+        })
     return jsonify(targets=rows)
 
 
@@ -716,6 +797,11 @@ def application_detail(aid):
             **_application_dict(app_row),
             "student": _student_dict(app_row.student),
             "drive": _drive_dict(app_row.drive),
+            "history": [
+                {"status": h.status, "note": h.note,
+                 "created_at": h.created_at.strftime("%d %b %Y, %H:%M")}
+                for h in reversed(app_row.history)
+            ],
         }
     )
 
@@ -728,10 +814,25 @@ def set_application_status(aid):
         return jsonify(error="Invalid status"), 400
     app_row = db.get_or_404(Application, aid)
     app_row.status = new_status
+    db.session.add(ApplicationStatusHistory(
+        application_id=app_row.id, status=new_status,
+        note=(request.get_json(silent=True) or {}).get("note") or None,
+        changed_by=g.user_id,
+    ))
+    # Placement offers mirror "selected" applications: create on selection,
+    # remove when the offer is walked back (select → rejected).
+    student = app_row.student
+    record = PlacementRecord.query.filter_by(student_id=student.id, drive_id=app_row.drive_id).first()
+    if new_status == "selected" and not record:
+        db.session.add(PlacementRecord(
+            student_id=student.id, drive_id=app_row.drive_id,
+            application_id=app_row.id, package_lpa=app_row.drive.package_lpa,
+        ))
+    elif new_status != "selected" and record:
+        db.session.delete(record)
     # Mirror onto the student's overall placement status, recomputed from all
     # of their applications so later transitions (e.g. select → rejected) roll
     # the mirror back instead of leaving a stale "selected".
-    student = app_row.student
     statuses = {a.status for a in Application.query.filter_by(student_id=student.id)}
     if "selected" in statuses:
         student.status = "selected"
@@ -846,9 +947,6 @@ def export(entity):
     if entity not in EXPORTERS:
         return jsonify(error="Unknown entity: " + entity), 400
     df = _export_frame(entity)
-    cols = EXPORTERS[entity]["columns"]
-    if entity == "students":
-        cols = df.columns.tolist()
     buf = io.StringIO()
     df.to_csv(buf, index=False)
     buf.seek(0)

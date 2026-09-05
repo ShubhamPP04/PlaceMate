@@ -27,9 +27,13 @@ export default function Notices() {
 
   async function handleDelete(n) {
     if (!confirm(`Delete "${n.title}"?`)) return
-    await api.deleteNotice(n.id)
-    setMessage({ kind: 'info', text: 'Notice deleted.' })
-    load()
+    try {
+      await api.deleteNotice(n.id)
+      setMessage({ kind: 'info', text: 'Notice deleted.' })
+      load()
+    } catch (err) {
+      setMessage({ kind: 'danger', text: err.message })
+    }
   }
 
   return (

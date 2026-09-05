@@ -1,8 +1,9 @@
 """Placement Cell Management System — Flask API + app factory."""
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from flask import Flask, current_app, jsonify
+from flask import Flask, current_app, jsonify, request
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 
@@ -66,6 +67,30 @@ def create_app():
     # flask-cors rejects a bool here; "*" makes it echo the request origin,
     # which is what credentialed requests need in local dev.
     CORS(app, supports_credentials=True, origins=[frontend_origin] if frontend_origin else "*")
+
+    # The session cookie is SameSite=None in production (cross-subdomain UI/API),
+    # so the browser attaches it to cross-site POSTs too. CORS cannot stop simple
+    # form posts — verify Origin/Referer on state-changing requests instead.
+    @app.before_request
+    def _verify_origin():
+        if request.method not in ("POST", "PUT", "PATCH", "DELETE") or not is_prod:
+            return None
+        source = request.headers.get("Origin") or request.headers.get("Referer") or ""
+        if not source:
+            return None  # non-browser client (curl, server-to-server)
+        if "://" not in source:
+            source = "https://" + source
+        try:
+            origin_host = urlsplit(source).netloc.lower()
+        except ValueError:
+            return jsonify(error="Cross-site request blocked"), 403
+        allowed_hosts = {(request.host or "").lower()}
+        if frontend_origin:
+            fo = frontend_origin if "://" in frontend_origin else "https://" + frontend_origin
+            allowed_hosts.add(urlsplit(fo).netloc.lower())
+        if origin_host not in allowed_hosts:
+            return jsonify(error="Cross-site request blocked"), 403
+        return None
 
     from .routes.auth import auth_bp
     from .routes.admin import admin_bp

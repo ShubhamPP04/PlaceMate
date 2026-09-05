@@ -29,6 +29,13 @@ export default function PortalApplications() {
               <div className="text-ink-low">Drive date<span className="ml-1 font-semibold text-ink-hi">{a.drive_date || '—'}</span></div>
               <div className="text-ink-low">Applied<span className="ml-1 font-semibold text-ink-hi">{a.applied_at}</span></div>
             </div>
+            {a.history?.length > 1 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {a.history.map((h, i) => (
+                  <span key={i} className="rounded-full border border-hairline px-2 py-0.5 text-[10px] text-ink-mid">{h.status} · {h.created_at}</span>
+                ))}
+              </div>
+            )}
           </Card>
         ))}
         {!apps.length && (

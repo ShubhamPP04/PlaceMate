@@ -8,24 +8,6 @@ export function Card({ className = '', lime = false, children, ...rest }) {
   )
 }
 
-export function Eyebrow({ children, live = false }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-raise px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-mid">
-      {live && <span className="h-1.5 w-1.5 rounded-full bg-green" />}
-      {children}
-    </span>
-  )
-}
-
-export function SectionTitle({ children, sub }) {
-  return (
-    <div className="mb-4">
-      <h2 className="font-display text-[15px] font-bold tracking-tight text-ink-hi">{children}</h2>
-      {sub && <p className="mt-0.5 text-xs text-ink-low">{sub}</p>}
-    </div>
-  )
-}
-
 const PILLS = {
   unplaced: 'pill-unplaced',
   applied: 'pill-applied',

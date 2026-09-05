@@ -142,6 +142,29 @@ export default function ApplicationDetail() {
           </form>
         </Card>
       </div>
+
+      {/* status history */}
+      {app.history?.length > 0 && (
+        <div className="rise rise-d4">
+          <Card className="px-5 py-4">
+            <h2 className="font-display mb-4 text-[15px] font-bold leading-none text-ink-hi">Status history</h2>
+            <ol className="space-y-2.5">
+              {app.history.map((h, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${i === 0 ? 'bg-green' : 'bg-ink-low/40'}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <StatusPill status={h.status} />
+                      <span className="shrink-0 text-[11px] tabular-nums text-ink-low">{h.created_at}</span>
+                    </div>
+                    {h.note && <p className="mt-1 text-xs text-ink-mid">{h.note}</p>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

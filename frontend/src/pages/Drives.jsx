@@ -71,9 +71,13 @@ export default function Drives() {
   }
 
   async function handleToggle(d) {
-    await api.toggleDrive(d.id)
-    setMessage({ kind: 'info', text: `Drive "${d.title}" ${d.is_active ? 'closed' : 'reopened'}.` })
-    load()
+    try {
+      await api.toggleDrive(d.id)
+      setMessage({ kind: 'info', text: `Drive "${d.title}" ${d.is_active ? 'closed' : 'reopened'}.` })
+      load()
+    } catch (err) {
+      setMessage({ kind: 'danger', text: err.message })
+    }
   }
 
   return (

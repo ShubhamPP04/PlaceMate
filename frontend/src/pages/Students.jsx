@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { Alert, Card, Field, GhostButton, PrimaryButton, StatusPill, inputClass } from '../components/ui'
 
@@ -22,6 +23,7 @@ export default function Students() {
   const [message, setMessage] = useState(null)
   const [importReport, setImportReport] = useState(null)
   const fileRef = useRef(null)
+  const navigate = useNavigate()
 
   const load = useCallback(async (f = filters) => {
     const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString()
@@ -50,8 +52,9 @@ export default function Students() {
         await api.updateStudent(editing, body)
         setMessage({ kind: 'success', text: 'Student updated.' })
       } else {
-        await api.addStudent(body)
-        setMessage({ kind: 'success', text: 'Student added — default password is their roll no.' })
+        const res = await api.addStudent(body)
+        const pw = res.student?.temp_password
+        setMessage({ kind: 'success', text: pw ? `Student added — one-time login password: ${pw}` : 'Student added.' })
       }
       setForm(EMPTY); setEditing(null); setShowForm(false)
       load()
@@ -62,9 +65,13 @@ export default function Students() {
 
   async function handleDelete(s) {
     if (!confirm(`Remove ${s.name}?`)) return
-    await api.deleteStudent(s.id)
-    setMessage({ kind: 'info', text: `${s.name} removed.` })
-    load()
+    try {
+      await api.deleteStudent(s.id)
+      setMessage({ kind: 'info', text: `${s.name} removed.` })
+      load()
+    } catch (err) {
+      setMessage({ kind: 'danger', text: err.message })
+    }
   }
 
   async function handleReset(s) {
@@ -198,7 +205,7 @@ export default function Students() {
               <div key={s.id} className="mobile-list-card">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold text-ink-hi">{s.name}</p>
+                    <button type="button" onClick={() => navigate(`/students/${s.id}`)} className="truncate text-left text-[15px] font-semibold text-ink-hi transition-colors hover:text-green">{s.name}</button>
                     <p className="mt-0.5 text-[12px] tabular-nums text-ink-mid">{s.roll_no}</p>
                     <p className="mt-0.5 truncate text-[11px] text-ink-low">{s.email}</p>
                   </div>
@@ -246,7 +253,7 @@ export default function Students() {
                   <tr key={s.id} className="table-row border-t border-hairline">
                     <td className="px-2 py-3 font-medium tabular-nums text-ink-hi">{s.roll_no}</td>
                     <td className="px-2 py-3">
-                      <div className="font-medium text-ink-hi">{s.name}</div>
+                      <button type="button" onClick={() => navigate(`/students/${s.id}`)} className="block text-left font-medium text-ink-hi transition-colors hover:text-green">{s.name}</button>
                       <div className="text-xs text-ink-mid">{s.email}</div>
                     </td>
                     <td className="px-2 py-3">

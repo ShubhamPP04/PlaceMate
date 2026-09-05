@@ -65,10 +65,13 @@ accepted and normalized to `postgresql://` for SQLAlchemy.
 ## Logins
 
 - **Admin:** `admin@placemate.edu` / `admin123` (auto-seeded on first backend start).
-- **Student:** each student profile gets a login in `migrate.py` — email = the
-  student's email, **default password = their roll number (lowercased)**, e.g. `22ece001`.
-  Students log in to `/portal` and can edit their phone/skills and change their own password.
-  Any student created/imported from the admin UI is auto-provisioned the same way.
+- **Student:** every student gets a login, auto-provisioned when the student is
+  added or CSV-imported from the admin UI (existing rows are backfilled by
+  `migrate.py`). Email = the student's email; the password is a random one-time
+  temp password the admin sees exactly once — when creating the student or
+  clicking "Reset pwd" (bulk import runs print theirs to the console). Students
+  log in to `/portal`, can edit their phone/skills, and should change the temp
+  password after first login.
 
 ## Roles & routing
 
@@ -83,6 +86,8 @@ accepted and normalized to `postgresql://` for SQLAlchemy.
 ### Admin (`/api/admin`, role = admin)
 - `GET /dashboard` — KPIs (incl. `highest_package`, `avg_package_overall`, `unplaced`), top skills, dept stats, chart datasets
 - `GET/POST /students`, `PUT/DELETE /students/:id`, `POST /students/:id/reset-password`, `POST /students/import`
+- `GET /students/:id` — student detail: profile, applications + placement offers
+- `PUT /students/:id/offers/:rid` — set the actual offered CTC (`package_lpa`) on an offer
 - `GET/POST /companies`, `PUT/DELETE /companies/:id`
 - `GET/POST /drives`, `PUT/DELETE /drives/:id`, `POST /drives/:id/toggle`, `GET /drives/:id/targets`
 - `GET /applications`, `GET /applications/:id`, `POST /applications/:id/status`
@@ -94,6 +99,7 @@ All list endpoints accept filters: `?q=`, and status/department/company as appli
 ### Portal (`/api/portal`, role = student)
 - `GET /summary` — profile, application counts, upcoming deadlines, latest notices
 - `GET /drives` — every drive with per-student `eligible` / `ineligible_reason` / `applied`
+- `GET /drives/:id` — one drive with the student's eligibility + application state
 - `POST /drives/:id/apply` — blocks ineligible, closed, deadline-passed, or duplicate applications
 - `GET /applications` — the student&#39;s own applications with status
 - `PATCH /profile` — update phone + skills
@@ -101,6 +107,19 @@ All list endpoints accept filters: `?q=`, and status/department/company as appli
 
 ### Auth (`/api/auth`)
 - `POST /login`, `POST /logout`, `GET /me`, `POST /password` (change own password)
+
+### Offers, rounds & policy
+
+- Every status change is recorded in an audit/status-history timeline — visible
+  on the admin application detail page and as status chips in the student's
+  applications list.
+- Marking an application **Selected** automatically creates a PlacementRecord
+  (offer); the admin can override its actual CTC via
+  `PUT /students/:id/offers/:rid`.
+- A placed student can only apply to drives paying at least their best offer
+  + 2 LPA (the "offer ladder") — enforced server-side at apply time.
+- Dashboard highest/average package figures use actual offers when present,
+  falling back to the advertised drive package.
 
 ## Eligibility engine
 

@@ -41,9 +41,13 @@ export default function Companies() {
 
   async function handleDelete(c) {
     if (!confirm(`Remove ${c.name} and its drives?`)) return
-    await api.deleteCompany(c.id)
-    setMessage({ kind: 'info', text: `${c.name} removed.` })
-    load()
+    try {
+      await api.deleteCompany(c.id)
+      setMessage({ kind: 'info', text: `${c.name} removed.` })
+      load()
+    } catch (err) {
+      setMessage({ kind: 'danger', text: err.message })
+    }
   }
 
   return (

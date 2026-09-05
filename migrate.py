@@ -9,6 +9,7 @@ schema; this script only patches older databases and backfills demo data.
 4. Stamp deadlines on drives that don't have one
 5. Backfill a login User (role=student) with a random one-time temp password
 6. Seed sample notices when empty
+7. Backfill placement offers + application status history
 
 Run: ./venv/bin/python migrate.py
 
@@ -24,7 +25,8 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from app.models import Drive, Notice, Student, User
+from app.models import (Application, ApplicationStatusHistory, Drive, Notice,
+                        PlacementRecord, Student, User)
 
 app = create_app()
 
@@ -204,6 +206,24 @@ with app.app_context():
         print("Seeded 3 sample notices.")
     else:
         print("Notices already present.")
+
+    # 6 · backfill placement offers + status history for pre-existing rows
+    offers = history_rows = 0
+    for a in Application.query.all():
+        if a.status == "selected" and not PlacementRecord.query.filter_by(
+            student_id=a.student_id, drive_id=a.drive_id
+        ).first():
+            db.session.add(PlacementRecord(
+                student_id=a.student_id, drive_id=a.drive_id, application_id=a.id,
+                package_lpa=a.drive.package_lpa,
+            ))
+            offers += 1
+        if len(a.history) == 0:
+            db.session.add(ApplicationStatusHistory(
+                application_id=a.id, status=a.status, note="Backfilled from pre-existing data",
+            ))
+            history_rows += 1
+    print(f"Backfilled {offers} placement offer(s) and {history_rows} status-history row(s).")
 
     db.session.commit()
     print("Migration complete.")

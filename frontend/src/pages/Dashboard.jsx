@@ -12,6 +12,12 @@ function useChartTheme() {
       const cs = getComputedStyle(document.documentElement)
       const v = (n) => cs.getPropertyValue(n).trim()
       setT({
+        trend: v('--chart-trend') || '#2dd4bf',
+        c1: v('--chart-1') || '#38bdf8',
+        c2: v('--chart-2') || '#6366f1',
+        c3: v('--chart-3') || '#2dd4bf',
+        dept: v('--chart-dept') || '#818cf8',
+        mute: v('--chart-mute') || 'rgba(255,255,255,0.14)',
         green: v('--green') || '#22c55e',
         metric: v('--metric') || '#d3ef4c',
         amber: v('--amber') || '#d9a13b',
@@ -65,7 +71,7 @@ export default function Dashboard() {
   const { stats, charts, dept_stats: deptStats } = data
   const funnel = charts.appFunnel.labels.map((l, i) => ({
     name: l, value: charts.appFunnel.values[i],
-    fill: [T.green, T.amber, T.metric, T.coral][i],
+    fill: [T.c1, T.c2, T.c3, T.coral][i],
   }))
   const skills = charts.topSkills.labels.map((l, i) => ({ name: l, value: charts.topSkills.values[i] }))
   const trend = charts.monthlyApps.labels.map((l, i) => ({ month: l, apps: charts.monthlyApps.values[i] }))
@@ -122,15 +128,15 @@ export default function Dashboard() {
             <AreaChart data={trend} margin={INSET}>
               <defs>
                 <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={T.green} stopOpacity={0.32} />
-                  <stop offset="100%" stopColor={T.green} stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={T.trend} stopOpacity={0.32} />
+                  <stop offset="100%" stopColor={T.trend} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="2 6" stroke={T.hairline} vertical={false} />
               <XAxis dataKey="month" tick={AXIS} axisLine={false} tickLine={false} tickMargin={10} />
               <YAxis allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} width={44} />
               <Tooltip contentStyle={TOOLTIP} cursor={{ stroke: T.hairline }} />
-              <Area type="monotone" dataKey="apps" stroke={T.green} strokeWidth={2.5} fill="url(#tg)" dot={false} activeDot={{ r: 5, fill: T.green }} />
+              <Area type="monotone" dataKey="apps" stroke={T.trend} strokeWidth={2.5} fill="url(#tg)" dot={false} activeDot={{ r: 5, fill: T.trend }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -162,7 +168,7 @@ export default function Dashboard() {
                 <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" width={84} tick={AXIS} axisLine={false} tickLine={false} tickMargin={0} />
                 <Tooltip contentStyle={TOOLTIP} cursor={{ fill: T.hairline }} />
-                <Bar dataKey="value" fill={T.green} radius={[0, 6, 6, 0]} maxBarSize={16} barSize={16} />
+                <Bar dataKey="value" fill={T.c1} radius={[0, 6, 6, 0]} maxBarSize={16} barSize={16} />
               </BarChart>
             </ResponsiveContainer>
           ) : <p className="py-16 text-center text-sm text-ink-low">No shortlisted applications yet.</p>}
@@ -176,7 +182,7 @@ export default function Dashboard() {
               <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} tickMargin={10} />
               <YAxis tick={AXIS} axisLine={false} tickLine={false} width={44} />
               <Tooltip contentStyle={TOOLTIP} cursor={{ fill: T.hairline }} />
-              <Bar dataKey="pct" fill={T.metric} radius={[8, 8, 2, 2]} maxBarSize={40} minBarSize={3} barCategoryGap="28%" />
+              <Bar dataKey="pct" fill={T.dept} radius={[8, 8, 2, 2]} maxBarSize={40} minBarSize={3} barCategoryGap="28%" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -196,9 +202,9 @@ export default function Dashboard() {
                   dataKey="value" innerRadius={72} outerRadius={98} cornerRadius={9}
                   paddingAngle={3} strokeWidth={0} startAngle={90} endAngle={-270} cx="50%" cy="50%"
                 >
-                  <Cell fill={T.green} />
-                  <Cell fill={T.amber} />
-                  <Cell fill={T.hairline} />
+                  <Cell fill={T.c3} />
+                  <Cell fill={T.c2} />
+                  <Cell fill={T.mute} />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>

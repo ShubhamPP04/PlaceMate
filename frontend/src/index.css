@@ -59,7 +59,12 @@
   --green: #22c55e;
   --green-soft: rgba(34, 197, 94, 0.15);
   --metric: #d3ef4c;
-  --amber: #d9a13b;
+  --chart-trend: #2dd4bf;
+  --chart-1: #38bdf8;
+  --chart-2: #6366f1;
+  --chart-3: #2dd4bf;
+  --chart-dept: #818cf8;
+  --chart-mute: rgba(255, 255, 255, 0.14);
   --lime: #e8ff66;
   --lime-ink: #1a2600;
   --coral: #f87171;
@@ -129,6 +134,12 @@
   --lime: #e2fb3f;
   --lime-ink: #1a2600;
   --coral: #dc2626;
+  --chart-trend: #0d9488;
+  --chart-1: #0284c7;
+  --chart-2: #4f46e5;
+  --chart-3: #0d9488;
+  --chart-dept: #6366f1;
+  --chart-mute: rgba(15, 23, 18, 0.12);
   --shadow-card: var(--glass-card-shadow);
   --aurora-1: rgba(34, 197, 94, 0.42);
   --aurora-2: rgba(163, 230, 53, 0.34);

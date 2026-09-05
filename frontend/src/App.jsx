@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { api } from './api'
 import Layout from './components/Layout'
@@ -6,7 +6,6 @@ import Applications from './pages/Applications'
 import ApplicationDetail from './pages/ApplicationDetail'
 import Companies from './pages/Companies'
 import CompanyDetail from './pages/CompanyDetail'
-import Dashboard from './pages/Dashboard'
 import Drives from './pages/Drives'
 import DriveDetail from './pages/DriveDetail'
 import Login from './pages/Login'
@@ -18,6 +17,10 @@ import PortalHome from './pages/PortalHome'
 import PortalProfile from './pages/PortalProfile'
 import StudentDetail from './pages/StudentDetail'
 import Students from './pages/Students'
+
+/* Recharts is ~2/3 of the bundle — load the dashboard (its only consumer)
+   on demand so every other route paints from a much smaller entry chunk. */
+const Dashboard = lazy(() => import('./pages/Dashboard'))
 
 /* Redirect a freshly logged-in user to the right hub by role. */
 
@@ -50,7 +53,14 @@ export default function App() {
           {/* admin routes */}
           {!isStudent && (
             <>
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <Suspense fallback={<p className="py-24 text-center text-ink-low">Loading…</p>}>
+                    <Dashboard />
+                  </Suspense>
+                }
+              />
               <Route path="/students" element={<Students />} />
               <Route path="/students/:id" element={<StudentDetail />} />
               <Route path="/companies" element={<Companies />} />

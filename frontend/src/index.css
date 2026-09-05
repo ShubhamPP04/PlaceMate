@@ -172,8 +172,18 @@
 html, body {
   min-height: 100dvh;
   background-color: var(--stage-bottom);
+}
+/* The stage gradient lives on a fixed pseudo-element instead of
+   background-attachment: fixed — identical look, but scrolling never
+   forces a full-viewport background repaint (Safari's fixed-attachment
+   weakness) and the layer rasterizes once. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image: var(--stage-image);
-  background-attachment: fixed;
 }
 
 body {
@@ -200,6 +210,9 @@ body {
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  /* contain all soft-light/overlay blending inside the backdrop so blends
+     never climb into the shell's stacking context */
+  isolation: isolate;
 }
 .stage-aurora::before {
   content: "";
@@ -344,10 +357,8 @@ body {
 .stage-aurora i:nth-of-type(8) { left: 93%; width: 3px; height: 3px; --d: 27s; --pulse: 3.8s; animation-delay: -14s; }
 /* ── fluted glass band ──
    Vertical ribs (repeating-linear-gradient) with a slow specular sweep.
-   The sweep animates background-position (paint-only on a fixed 240px tile,
-   no layout) at low opacity so it reads as light crossing the flutes.
-   Chromium additionally refracts the backdrop through the shared SVG
-   displacement map (flutes displace along X only, constant down Y). */
+   Both layers animate transform only — GPU-composited, no per-frame
+   repaint — at low opacity so it reads as light crossing the flutes. */
 .stage-aurora b {
   position: absolute;
   inset: -40px; /* bleed so the rib slide never exposes an edge */
@@ -374,8 +385,16 @@ body {
 .stage-aurora b::after {
   content: "";
   position: absolute;
-  inset: 0;
-  /* specular sheen traveling down the flutes (unchanged) */
+  left: 0;
+  right: 0;
+  /* one 240%-height tile + one viewport of headroom, so the element still
+     covers the band at the end of a one-period travel */
+  top: -240%;
+  height: 340%;
+  /* specular sheen traveling down the flutes. background-size keeps the
+     exact 240%-tile (240/340 of this element) so highlight positions match
+     the old background-position version; the sweep animates transform only
+     — compositor-owned, no per-frame paint. */
   background: linear-gradient(180deg,
     transparent 0%,
     rgba(255, 255, 255, 0.07) 18%,
@@ -383,7 +402,8 @@ body {
     transparent 55%,
     rgba(255, 255, 255, 0.05) 72%,
     transparent 88%);
-  background-size: 100% 240%;
+  background-size: 100% 70.58824%;
+  will-change: transform;
   animation: flute-sweep 26s linear infinite;
 }
 @keyframes flute-drift {
@@ -391,17 +411,14 @@ body {
   to   { transform: translate3d(0, 0, 0); }
 }
 @keyframes flute-sweep {
-  from { background-position: 0 0%; }
-  to   { background-position: 0 240%; }
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 70.58824%, 0); }
 }
-/* Chromium: true refraction — flutes displace the backdrop sideways.
-   Static filter (no per-frame cost); the sweep above carries the motion. */
-@supports (backdrop-filter: url(#pm-fluted)) and (not (-moz-appearance: none)) {
-  .stage-aurora b {
-    -webkit-backdrop-filter: blur(1.5px) url(#pm-fluted);
-    backdrop-filter: blur(1.5px) url(#pm-fluted);
-  }
-}
+/* Chromium fluted backdrop-filter removed: the pm-fluted displacement map
+   runs at scale=1, so its refraction was ≤0.24px (invisible under the
+   soft-light rib layer) while forcing a full-screen SVG-filter re-render
+   every frame the aurora moved. The painted ribs + sweep carry the whole
+   look at a fraction of the cost. */
 /* ── film grain ──
    Static noise tile over the stage — texture without motion cost. */
 .stage-aurora::after {

@@ -52,18 +52,20 @@ def _student_dict(s: Student):
     }
 
 
-def _company_dict(c: Company):
+def _company_dict(c: Company, drives_count=None):
     return {
         "id": c.id,
         "name": c.name,
         "industry": c.industry,
         "website": c.website,
         "hr_email": c.hr_email,
-        "drives_count": c.drives.count(),
+        # callers listing many companies pass a precomputed count to avoid
+        # a COUNT query per row
+        "drives_count": c.drives.count() if drives_count is None else drives_count,
     }
 
 
-def _drive_dict(d: Drive):
+def _drive_dict(d: Drive, applications_count=None):
     return {
         "id": d.id,
         "company_id": d.company_id,
@@ -79,7 +81,7 @@ def _drive_dict(d: Drive):
         "application_deadline": d.application_deadline.isoformat() if d.application_deadline else None,
         "is_active": d.is_active,
         "is_accepting": d.is_accepting,
-        "applications_count": d.applications.count(),
+        "applications_count": d.applications.count() if applications_count is None else applications_count,
     }
 
 
@@ -139,7 +141,10 @@ def dashboard():
 
     # Actual offers (PlacementRecord) are the source of truth for packages;
     # advertised drive packages are the fallback for pre-offer data.
-    offer_packages = [r.package_lpa for r in PlacementRecord.query.all() if r.package_lpa]
+    offer_packages = [
+        p for (p,) in db.session.query(PlacementRecord.package_lpa)
+        .filter(PlacementRecord.package_lpa.isnot(None)).all()
+    ]
     if offer_packages:
         highest_package = max(offer_packages)
         avg_package_overall = round(sum(offer_packages) / len(offer_packages), 2)
@@ -401,9 +406,18 @@ def update_student(sid):
 @login_required(role="admin")
 def student_detail(sid):
     student = db.get_or_404(Student, sid)
+    student_apps = (
+        Application.query.options(
+            joinedload(Application.drive).joinedload(Drive.company),
+            joinedload(Application.student),
+        )
+        .filter_by(student_id=student.id)
+        .order_by(Application.applied_at.desc())
+        .all()
+    )
     return jsonify(
         student=_student_dict(student),
-        applications=[_application_dict(a) for a in student.applications.order_by(Application.applied_at.desc())],
+        applications=[_application_dict(a) for a in student_apps],
         offers=[_offer_dict(r) for r in student.placement_records],
     )
 
@@ -516,7 +530,8 @@ def list_companies():
     query = Company.query
     if q:
         query = query.filter(Company.name.ilike(f"%{q}%"))
-    return jsonify(companies=[_company_dict(c) for c in query.order_by(Company.name)])
+    counts = dict(db.session.query(Drive.company_id, db.func.count()).group_by(Drive.company_id).all())
+    return jsonify(companies=[_company_dict(c, counts.get(c.id, 0)) for c in query.order_by(Company.name)])
 
 
 @admin_bp.get("/companies/<int:cid>")
@@ -627,19 +642,27 @@ def list_drives():
     drives = query.order_by(Drive.is_active.desc(), Drive.drive_date).all()
 
     companies = [{"id": c.id, "name": c.name} for c in Company.query.order_by(Company.name)]
-    return jsonify(drives=[_drive_dict(d) for d in drives], companies=companies)
+    counts = dict(db.session.query(Application.drive_id, db.func.count()).group_by(Application.drive_id).all())
+    return jsonify(drives=[_drive_dict(d, counts.get(d.id, 0)) for d in drives], companies=companies)
 
 
 @admin_bp.get("/drives/<int:did>")
 @login_required(role="admin")
 def drive_detail(did):
     drive = db.get_or_404(Drive, did)
+    drive_apps = (
+        Application.query.options(
+            joinedload(Application.student),
+            joinedload(Application.drive).joinedload(Drive.company),
+        )
+        .filter_by(drive_id=drive.id)
+        .order_by(Application.applied_at.desc())
+        .all()
+    )
     return jsonify(
         drive={
             **_drive_dict(drive),
-            "applications": [
-                _application_dict(a) for a in drive.applications.order_by(Application.applied_at.desc())
-            ],
+            "applications": [_application_dict(a) for a in drive_apps],
         }
     )
 
@@ -774,7 +797,10 @@ def list_applications():
     q = request.args.get("q", "").strip()
     status = request.args.get("status", "")
 
-    query = Application.query.join(Student).join(Drive).join(Company)
+    query = Application.query.options(
+        joinedload(Application.student),
+        joinedload(Application.drive).joinedload(Drive.company),
+    ).join(Student).join(Drive).join(Company)
     if q:
         query = query.filter(db.or_(
             Student.name.ilike(f"%{q}%"),

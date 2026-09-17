@@ -15,6 +15,7 @@ import PortalDriveDetail from './pages/PortalDriveDetail'
 import PortalDrives from './pages/PortalDrives'
 import PortalHome from './pages/PortalHome'
 import PortalProfile from './pages/PortalProfile'
+import PortalCalendar from './pages/PortalCalendar'
 import StudentDetail from './pages/StudentDetail'
 import Students from './pages/Students'
 
@@ -80,6 +81,7 @@ export default function App() {
               <Route path="/portal/drives" element={<PortalDrives />} />
               <Route path="/portal/drives/:id" element={<PortalDriveDetail />} />
               <Route path="/portal/applications" element={<PortalApplications />} />
+              <Route path="/portal/calendar" element={<PortalCalendar />} />
               <Route path="/portal/profile" element={<PortalProfile />} />
             </>
           )}

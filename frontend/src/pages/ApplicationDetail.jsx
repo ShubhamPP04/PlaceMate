@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
-import { Alert, Card, Field, GhostButton, PrimaryButton, StatusPill, inputClass } from '../components/ui'
+import { Alert, Card, GhostButton, PrimaryButton, StatusPill, inputClass } from '../components/ui'
 
 const STATUSES = ['applied', 'shortlisted', 'selected', 'rejected']
 const titleCase = (s) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -26,6 +26,7 @@ export default function ApplicationDetail() {
   const [app, setApp] = useState(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState(null)
+  const [note, setNote] = useState('')
 
   function load() {
     api.application(id)
@@ -34,15 +35,23 @@ export default function ApplicationDetail() {
   }
   useEffect(() => { load() }, [id])
 
+  const [saving, setSaving] = useState(false)
+
   async function updateStatus(e) {
     e.preventDefault()
-    const status = new FormData(e.target).get('status')
+    if (saving) return
+    const fd = new FormData(e.target)
+    const status = fd.get('status')
+    setSaving(true)
     try {
-      await api.setApplicationStatus(app.id, status)
+      await api.setApplicationStatus(app.id, status, (fd.get('note') || '').trim())
+      setNote('')
       setMessage({ kind: 'success', text: `Application marked ${status}.` })
       load()
     } catch (err) {
       setMessage({ kind: 'danger', text: err.message })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -132,13 +141,28 @@ export default function ApplicationDetail() {
       <div className="rise rise-d3">
         <Card className="px-5 py-4">
           <h2 className="font-display mb-4 text-[15px] font-bold leading-none text-ink-hi">Update status</h2>
-          <form onSubmit={updateStatus} className="flex items-center gap-3 flex-wrap">
-            <div className="field-shell flex-1 sm:max-w-[240px]">
-              <select name="status" defaultValue={app.status} className={inputClass}>
-                {STATUSES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
-              </select>
+          <form onSubmit={updateStatus} className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="field-shell w-full sm:max-w-[240px]">
+                <select key={app.status} aria-label="Application status" disabled={saving} name="status" defaultValue={app.status} className={inputClass}>
+                  {STATUSES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
+                </select>
+              </div>
+              <div className="field-shell w-full flex-1">
+                <textarea
+                  aria-label="Optional status note"
+                  disabled={saving}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  name="note"
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Optional note — visible to the student in status history"
+                  className={`${inputClass} resize-y`}
+                />
+              </div>
             </div>
-            <PrimaryButton type="submit" className="!px-5 !py-2.5 !text-[13px]">Save</PrimaryButton>
+            <PrimaryButton type="submit" disabled={saving} className="!px-5 !py-2.5 !text-[13px]">{saving ? 'Saving…' : 'Save'}</PrimaryButton>
           </form>
         </Card>
       </div>

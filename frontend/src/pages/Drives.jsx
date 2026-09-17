@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Alert, Card, Field, GhostButton, PrimaryButton, inputClass } from '../components/ui'
 
@@ -23,17 +23,28 @@ export default function Drives() {
   const [drives, setDrives] = useState([])
   const [companies, setCompanies] = useState([])
   const [filters, setFilters] = useState({ q: '', status: '', company: '' })
+  const [appliedFilters, setAppliedFilters] = useState({ q: '', status: '', company: '' })
+  const listRequest = useRef(0)
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [message, setMessage] = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
-  const load = useCallback(async (f = filters) => {
-    const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString()
-    const data = await api.drives(params ? `?${params}` : '')
-    setDrives(data.drives); setCompanies(data.companies)
-  }, [filters])
-  useEffect(() => { load() /* eslint-disable-line react-hooks/exhaustive-deps */ }, [load])
+
+  const load = useCallback(async (f = {}) => {
+    const requestId = ++listRequest.current
+    try {
+      const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString()
+      const data = await api.drives(params ? `?${params}` : '')
+      if (requestId !== listRequest.current) return
+      setDrives(data.drives); setCompanies(data.companies)
+      setAppliedFilters({ ...f })
+    } catch (err) {
+      if (requestId === listRequest.current) setMessage({ kind: 'danger', text: err.message })
+    }
+  }, [])
+  useEffect(() => { load(filters) }, [load, filters])
 
   function openCreate() { setEditing(null); setForm(EMPTY); setShowForm(true); setMessage(null) }
   function openEdit(d) {
@@ -64,7 +75,7 @@ export default function Drives() {
         setMessage({ kind: 'success', text: 'Drive created.' })
       }
       setForm(EMPTY); setEditing(null); setShowForm(false)
-      load()
+      load(filters)
     } catch (err) {
       setMessage({ kind: 'danger', text: err.message })
     }
@@ -74,9 +85,25 @@ export default function Drives() {
     try {
       await api.toggleDrive(d.id)
       setMessage({ kind: 'info', text: `Drive "${d.title}" ${d.is_active ? 'closed' : 'reopened'}.` })
-      load()
+      load(filters)
     } catch (err) {
       setMessage({ kind: 'danger', text: err.message })
+    }
+  }
+
+  async function handleDelete(d) {
+    if (deleting !== null) return
+    if (!confirm(`Delete drive "${d.title}"? This permanently removes its applications, status history and placement offers. This cannot be undone.`)) return
+    setDeleting(d.id)
+    try {
+      await api.deleteDrive(d.id)
+      setMessage({ kind: 'info', text: `Drive "${d.title}" deleted.` })
+      if (editing === d.id) { setEditing(null); setShowForm(false); setForm(EMPTY) }
+      await load(appliedFilters)
+    } catch (err) {
+      setMessage({ kind: 'danger', text: err.message })
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -91,7 +118,7 @@ export default function Drives() {
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Drives</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a href={api.exportUrl('drives')} className="btn-ghost">Export CSV</a>
+          <a href={api.exportUrl('drives', appliedFilters)} className="btn-ghost">Export CSV</a>
           {showForm
             ? <GhostButton onClick={() => { setShowForm(false); setEditing(null) }}>Close</GhostButton>
             : <PrimaryButton onClick={openCreate}>New drive</PrimaryButton>}
@@ -137,7 +164,7 @@ export default function Drives() {
       {/* filter row */}
       <div className="rise rise-d1 grid gap-2.5 md:grid-cols-4">
         <div className="field-shell md:col-span-2">
-          <input className={inputClass} placeholder="Search title, role, company…" value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && load()} />
+          <input className={inputClass} placeholder="Search title, role, company…" value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && load(filters)} />
         </div>
         <div className="field-shell">
           <select className={inputClass} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
@@ -146,7 +173,7 @@ export default function Drives() {
             <option value="closed">Closed</option>
           </select>
         </div>
-        <GhostButton className="justify-self-end" onClick={() => load()}>Apply filters</GhostButton>
+        <GhostButton className="justify-self-end" onClick={() => load(filters)}>Apply filters</GhostButton>
       </div>
 
       {/* bento drive grid */}
@@ -201,11 +228,12 @@ export default function Drives() {
                   </div>
                 )}
 
-                <div className="mt-auto flex gap-2 pt-5">
-                  <GhostButton className="flex-1" onClick={() => handleToggle(d)}>
+                <div className="mt-auto flex flex-wrap gap-2 pt-5">
+                  <GhostButton className="flex-1" disabled={deleting !== null} onClick={() => handleToggle(d)}>
                     {d.is_active ? 'Close drive' : 'Reopen drive'}
                   </GhostButton>
-                  <GhostButton onClick={() => openEdit(d)}>Edit</GhostButton>
+                  <GhostButton disabled={deleting !== null} onClick={() => openEdit(d)}>Edit</GhostButton>
+                  <GhostButton disabled={deleting !== null} onClick={() => handleDelete(d)} className="!border-coral/30 !text-coral hover:!bg-coral/10">{deleting === d.id ? 'Deleting…' : 'Delete'}</GhostButton>
                 </div>
               </div>
             </Card>

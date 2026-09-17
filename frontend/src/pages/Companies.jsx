@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Alert, Card, Field, GhostButton, PrimaryButton, inputClass } from '../components/ui'
 
@@ -7,17 +7,28 @@ const EMPTY = { name: '', industry: '', website: '', hr_email: '' }
 export default function Companies() {
   const [companies, setCompanies] = useState([])
   const [filters, setFilters] = useState({ q: '' })
+  const [appliedFilters, setAppliedFilters] = useState({ q: '' })
+  const listRequest = useRef(0)
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [message, setMessage] = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
-  const load = useCallback(async (f = filters) => {
-    const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString()
-    const data = await api.companies(params ? `?${params}` : '')
-    setCompanies(data.companies)
-  }, [filters])
-  useEffect(() => { load() /* eslint-disable-line react-hooks/exhaustive-deps */ }, [load])
+
+  const load = useCallback(async (f = {}) => {
+    const requestId = ++listRequest.current
+    try {
+      const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString()
+      const data = await api.companies(params ? `?${params}` : '')
+      if (requestId !== listRequest.current) return
+      setCompanies(data.companies)
+      setAppliedFilters({ ...f })
+    } catch (err) {
+      if (requestId === listRequest.current) setMessage({ kind: 'danger', text: err.message })
+    }
+  }, [])
+  useEffect(() => { load(filters) }, [load, filters])
 
   function openCreate() { setEditing(null); setForm(EMPTY); setShowForm(true); setMessage(null) }
   function openEdit(c) { setEditing(c.id); setForm(c); setShowForm(true) }
@@ -33,7 +44,7 @@ export default function Companies() {
         setMessage({ kind: 'success', text: 'Company added.' })
       }
       setForm(EMPTY); setEditing(null); setShowForm(false)
-      load()
+      load(filters)
     } catch (err) {
       setMessage({ kind: 'danger', text: err.message })
     }
@@ -41,12 +52,15 @@ export default function Companies() {
 
   async function handleDelete(c) {
     if (!confirm(`Remove ${c.name} and its drives?`)) return
+    setDeleting(c.id)
     try {
       await api.deleteCompany(c.id)
       setMessage({ kind: 'info', text: `${c.name} removed.` })
-      load()
+      load(filters)
     } catch (err) {
       setMessage({ kind: 'danger', text: err.message })
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -58,7 +72,7 @@ export default function Companies() {
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Companies</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a href={api.exportUrl('companies')} className="btn-ghost">Export CSV</a>
+          <a href={api.exportUrl('companies', appliedFilters)} className="btn-ghost">Export CSV</a>
           {showForm
             ? <GhostButton onClick={() => { setShowForm(false); setEditing(null) }}>Close</GhostButton>
             : <PrimaryButton onClick={openCreate}>Add company</PrimaryButton>}
@@ -93,10 +107,10 @@ export default function Companies() {
                   placeholder="Search companies…"
                   value={filters.q}
                   onChange={(e) => setFilters({ ...filters, q: e.target.value })}
-                  onKeyDown={(e) => e.key === 'Enter' && load()}
+                  onKeyDown={(e) => e.key === 'Enter' && load(filters)}
                 />
               </div>
-              <GhostButton className="justify-self-start" onClick={() => load()}>Apply</GhostButton>
+              <GhostButton className="justify-self-start" onClick={() => load(filters)}>Apply</GhostButton>
             </div>
           </div>
           <div className="mobile-list flex md:hidden">
@@ -119,7 +133,7 @@ export default function Companies() {
                 </div>
                 <div className="actions">
                   <button type="button" onClick={() => openEdit(c)} className="rounded-full border border-hairline px-3 py-1.5 text-[11px] text-ink-mid active:scale-[0.98]">Edit</button>
-                  <button type="button" onClick={() => handleDelete(c)} className="rounded-full border border-coral/25 px-3 py-1.5 text-[11px] text-coral active:scale-[0.98]">Remove</button>
+                  <button type="button" disabled={deleting !== null} onClick={() => handleDelete(c)} className="rounded-full border border-coral/25 px-3 py-1.5 text-[11px] text-coral active:scale-[0.98]">Remove</button>
                 </div>
               </div>
             ))}
@@ -162,7 +176,7 @@ export default function Companies() {
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(c)} className="rounded-full border border-hairline px-3 py-1 text-[11px] text-ink-mid transition-all duration-500 hover:bg-raise active:scale-[0.98]">Edit</button>
                         <button
-                          onClick={() => handleDelete(c)}
+                          disabled={deleting !== null} onClick={() => handleDelete(c)}
                           className="rounded-full border border-coral/25 px-3 py-1 text-[11px] text-coral transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-coral/10 active:scale-[0.98]"
                         >
                           Remove

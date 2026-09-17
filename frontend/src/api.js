@@ -28,13 +28,17 @@ export const api = {
       .then((d) => { sessionStorage.setItem(AUTHED_KEY, '1'); return d }),
   logout: () =>
     request('/auth/logout', { method: 'POST' })
-      .finally(() => sessionStorage.removeItem(AUTHED_KEY)),
+      .then((data) => { sessionStorage.removeItem(AUTHED_KEY); return data }),
+  requestRecovery: (email) => request('/auth/recovery-request', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ email }) }),
+  recoveryRequests: () => request('/admin/recovery-requests'),
+  resolveRecovery: (id) => request(`/admin/recovery-requests/${id}/resolve`, { method: 'POST' }),
   me: () => request('/auth/me'),
   changePassword: (body) => request('/auth/password', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
 
   dashboard: () => request('/admin/dashboard'),
   students: (params = '') => request(`/admin/students${params}`),
   student: (id) => request(`/admin/students/${id}`),
+  studentResumeUrl: (id) => `${API_BASE}/api/admin/students/${id}/resume`,
   updateOffer: (sid, rid, body) => request(`/admin/students/${sid}/offers/${rid}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   addStudent: (body) => request('/admin/students', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   updateStudent: (id, body) => request(`/admin/students/${id}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body) }),
@@ -55,21 +59,29 @@ export const api = {
   drive: (id) => request(`/admin/drives/${id}`),
   addDrive: (body) => request('/admin/drives', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   updateDrive: (id, body) => request(`/admin/drives/${id}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body) }),
+  deleteDrive: (id) => request(`/admin/drives/${id}`, { method: 'DELETE' }),
   toggleDrive: (id) => request(`/admin/drives/${id}/toggle`, { method: 'POST' }),
   driveTargets: (id) => request(`/admin/drives/${id}/targets`),
 
   applications: (params = '') => request(`/admin/applications${params}`),
   application: (id) => request(`/admin/applications/${id}`),
-  setApplicationStatus: (id, status) =>
-    request(`/admin/applications/${id}/status`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ status }) }),
+  setApplicationStatus: (id, status, note = '') =>
+    request(`/admin/applications/${id}/status`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ status, note }) }),
 
   notices: () => request('/admin/notices'),
   addNotice: (body) => request('/admin/notices', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   deleteNotice: (id) => request(`/admin/notices/${id}`, { method: 'DELETE' }),
 
-  exportUrl: (entity) => `${API_BASE}/api/admin/export/${entity}`,
+  exportUrl: (entity, filters = {}) => {
+    const params = new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== '' && value != null)).toString()
+    return `${API_BASE}/api/admin/export/${entity}${params ? `?${params}` : ''}`
+  },
 
   portal: {
+    resume: () => request('/portal/resume'),
+    uploadResume: (formData) => request('/portal/resume', { method: 'POST', body: formData }),
+    deleteResume: () => request('/portal/resume', { method: 'DELETE' }),
+    resumeUrl: () => `${API_BASE}/api/portal/resume/download`,
     summary: () => request('/portal/summary'),
     drives: () => request('/portal/drives'),
     drive: (id) => request(`/portal/drives/${id}`),

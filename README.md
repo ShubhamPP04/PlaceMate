@@ -64,14 +64,41 @@ accepted and normalized to `postgresql://` for SQLAlchemy.
 
 ## Logins
 
-- **Admin:** `admin@placemate.edu` / `admin123` (auto-seeded on first backend start).
-- **Student:** every student gets a login, auto-provisioned when the student is
-  added or CSV-imported from the admin UI (existing rows are backfilled by
-  `migrate.py`). Email = the student's email; the password is a random one-time
-  temp password the admin sees exactly once — when creating the student or
-  clicking "Reset pwd" (bulk import runs print theirs to the console). Students
-  log in to `/portal`, can edit their phone/skills, and should change the temp
-  password after first login.
+### Local testing accounts (isolated demo only)
+
+Login uses an **email address as the username**. These accounts are created by
+`tests/browser_fixture.py`, not by the normal application or production seed.
+
+| Role | Username / email | Password |
+|---|---|---|
+| Admin | `browser@admin.test` | `local-admin-test` |
+| Student | `browser@student.test` | `local-browser-test` |
+
+Start the API and frontend in separate terminals from the repository root:
+
+```bash
+# Terminal 1 — isolated Flask API on port 5087
+./venv/bin/python tests/browser_fixture.py
+
+# Terminal 2 — frontend on port 5187, using that API
+VITE_API_URL=http://127.0.0.1:5087 npm --prefix frontend run dev -- --host 127.0.0.1 --port 5187 --strictPort
+```
+
+Open **http://127.0.0.1:5187/login**. Port **5187 serves the frontend**;
+port **5087 serves the Flask API**. The fixture uses an in-memory SQLite database
+with synthetic records: changes disappear when its API process stops. These
+published passwords are for this local fixture only; never deploy the fixture
+or reuse them for real accounts.
+
+### Normal application accounts
+
+- **Admin:** `admin@placemate.edu`. The initial password is `ADMIN_PASSWORD` if
+  configured, otherwise the development fallback is `admin123`. This does not
+  override an existing account's password and is not a verified production login.
+- **Student:** accounts are provisioned when students are added or CSV-imported.
+  The username is the student's email. The generated temporary password is shown
+  on creation/reset, or in the CSV import credentials panel. Students should
+  change it after signing in. There is no fixed shared student password.
 
 ## Roles & routing
 

@@ -9,17 +9,34 @@ export default function Login({ onLogin }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [recovery, setRecovery] = useState(false)
+  const [message, setMessage] = useState('')
+
+  function toggleRecovery() {
+    if (busy) return
+    setRecovery((value) => !value)
+    setPassword('')
+    setError('')
+    setMessage('')
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (busy) return
     setBusy(true)
     setError('')
+    setMessage('')
     try {
-      const { user } = await api.login(email, password)
-      onLogin(user)
-      navigate(user.role === 'student' ? '/portal' : '/dashboard')
+      if (recovery) {
+        const result = await api.requestRecovery(email.trim())
+        setMessage(result.message || 'If the account is eligible, your request will be reviewed by the placement cell. Contact them to verify your identity before a password reset.')
+      } else {
+        const { user } = await api.login(email.trim(), password)
+        onLogin(user)
+        navigate(user.role === 'student' ? '/portal' : '/dashboard')
+      }
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Unable to complete your request. Please try again.')
     } finally {
       setBusy(false)
     }
@@ -48,45 +65,88 @@ export default function Login({ onLogin }) {
         </div>
 
         {error && (
-          <div className="rise mb-4 rounded-2xl border border-coral/25 bg-coral/10 px-5 py-3.5 text-sm text-coral">
+          <div className="rise mb-4 rounded-2xl border border-coral/25 bg-coral/10 px-5 py-3.5 text-sm text-coral" role="alert">
             {error}
           </div>
         )}
 
+        {message && (
+          <div className="rise mb-4 rounded-2xl border border-green/25 bg-green/10 px-5 py-3.5 text-sm text-ink-hi" role="status">
+            {message}
+          </div>
+        )}
+
         <div className="rise rise-d1 liquid-glass liquid-glass--hero p-0">
-          <form onSubmit={handleSubmit} className="relative z-[2] space-y-5 p-7">
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-low">Email</span>
-              <div className="field-shell">
-                <input
-                  className="field-input"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-low">Password</span>
-              <div className="field-shell">
-                <input
-                  className="field-input"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </label>
+          {recovery ? (
+            <form onSubmit={handleSubmit} className="relative z-[2] space-y-5 p-7">
+              <p className="text-sm leading-relaxed text-ink-mid">
+                Lost access to your password? Request a password reset, then contact the placement cell to verify your identity. A reset requires their approval.
+              </p>
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-low">Email</span>
+                <div className="field-shell">
+                  <input
+                    className="field-input"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </label>
 
-            <button type="submit" disabled={busy} className="btn-primary w-full justify-center">
-              <span>{busy ? 'Signing in…' : 'Sign in'}</span>
-              <span className="btn-icon-wrap">→</span>
-            </button>
+              <button type="submit" disabled={busy} className="btn-primary w-full justify-center">
+                <span>{busy ? 'Sending request…' : 'Request password reset'}</span>
+                <span className="btn-icon-wrap">→</span>
+              </button>
 
-          </form>
+              <p className="text-center">
+                <button type="button" onClick={toggleRecovery} disabled={busy} className="text-[11px] uppercase tracking-[0.14em] text-ink-low underline-offset-4 transition-colors duration-300 hover:text-ink-hi hover:underline disabled:opacity-50">
+                  Back to sign in
+                </button>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="relative z-[2] space-y-5 p-7">
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-low">Email</span>
+                <div className="field-shell">
+                  <input
+                    className="field-input"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-low">Password</span>
+                <div className="field-shell">
+                  <input
+                    className="field-input"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </label>
+
+              <button type="submit" disabled={busy} className="btn-primary w-full justify-center">
+                <span>{busy ? 'Signing in…' : 'Sign in'}</span>
+                <span className="btn-icon-wrap">→</span>
+              </button>
+
+              <p className="text-center">
+                <button type="button" onClick={toggleRecovery} disabled={busy} className="text-[11px] uppercase tracking-[0.14em] text-ink-low underline-offset-4 transition-colors duration-300 hover:text-ink-hi hover:underline disabled:opacity-50">
+                  Forgot password?
+                </button>
+              </p>
+            </form>
+          )}
         </div>
 
         <p className="rise rise-d2 mt-8 text-center text-[11px] uppercase tracking-[0.22em] text-ink-low">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Alert, Card, EligibilityPill, GhostButton, StatusPill } from '../components/ui'
 
@@ -8,23 +8,63 @@ const FILTER_STATUSES = ['', ...STATUSES]
 export default function Applications() {
   const [applications, setApplications] = useState([])
   const [filters, setFilters] = useState({ q: '', status: '' })
+  const [appliedFilters, setAppliedFilters] = useState({ q: '', status: '' })
+  const listRequest = useRef(0)
+  const [notes, setNotes] = useState({})
+  const [saving, setSaving] = useState(null)
   const [message, setMessage] = useState(null)
 
-  const load = useCallback(async (f = filters) => {
-    const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString()
-    const data = await api.applications(params ? `?${params}` : '')
-    setApplications(data.applications)
-  }, [filters])
-  useEffect(() => { load() /* eslint-disable-line react-hooks/exhaustive-deps */ }, [load])
 
-  async function updateStatus(a, status) {
+  const load = useCallback(async (f = {}) => {
+    const requestId = ++listRequest.current
     try {
-      await api.setApplicationStatus(a.id, status)
+      const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString()
+      const data = await api.applications(params ? `?${params}` : '')
+      if (requestId !== listRequest.current) return
+      setApplications(data.applications)
+      setAppliedFilters({ ...f })
+    } catch (err) {
+      if (requestId === listRequest.current) setMessage({ kind: 'danger', text: err.message })
+    }
+  }, [])
+  useEffect(() => { load(filters) }, [load, filters])
+
+  async function updateStatus(a, status, note = '') {
+    if (saving !== null) return
+    setSaving(a.id)
+    try {
+      await api.setApplicationStatus(a.id, status, note)
       setMessage({ kind: 'success', text: `Application marked ${status}.` })
-      load()
+      setNotes((current) => ({ ...current, [a.id]: '' }))
+      await load(filters)
     } catch (err) {
       setMessage({ kind: 'danger', text: err.message })
+    } finally {
+      setSaving(null)
     }
+  }
+
+  function statusForm(a) {
+    return (
+      <form
+        className="flex min-w-[180px] flex-wrap items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const fd = new FormData(e.target)
+          updateStatus(a, fd.get('status'), (fd.get('note') || '').trim())
+        }}
+      >
+        <div className="field-shell min-w-0 flex-1">
+          <select key={a.status} aria-label={`Status for ${a.student_name}`} disabled={saving !== null} name="status" defaultValue={a.status} className="field-input !px-3 !py-1.5 !text-xs">
+            {STATUSES.map((st) => <option key={st} value={st}>{st[0].toUpperCase() + st.slice(1)}</option>)}
+          </select>
+        </div>
+        <div className="field-shell order-last w-full">
+          <input aria-label={`Optional status note for ${a.student_name}`} disabled={saving !== null} value={notes[a.id] || ''} onChange={(e) => setNotes((current) => ({ ...current, [a.id]: e.target.value }))} name="note" maxLength={2000} placeholder="Note (optional)" className="field-input !px-3 !py-1.5 !text-xs" />
+        </div>
+        <GhostButton type="submit" disabled={saving !== null} className="!px-3.5 !py-1.5 !text-xs">{saving === a.id ? 'Saving…' : 'Save'}</GhostButton>
+      </form>
+    )
   }
 
   return (
@@ -34,7 +74,7 @@ export default function Applications() {
           <p className="text-[12px] leading-none text-ink-low">{applications.length} total</p>
           <h1 className="page-title font-display mt-1.5 text-[26px] font-extrabold leading-none tracking-tight text-ink-hi">Applications</h1>
         </div>
-        <a href={api.exportUrl('applications')} className="btn-ghost">Export CSV</a>
+        <a href={api.exportUrl('applications', appliedFilters)} className="btn-ghost">Export CSV</a>
       </div>
 
       {message && <Alert kind={message.kind} onClose={() => setMessage(null)}>{message.text}</Alert>}
@@ -49,7 +89,7 @@ export default function Applications() {
                   placeholder="Search student, company or role…"
                   value={filters.q}
                   onChange={(e) => setFilters({ ...filters, q: e.target.value })}
-                  onKeyDown={(e) => e.key === 'Enter' && load()}
+                  onKeyDown={(e) => e.key === 'Enter' && load(filters)}
                 />
               </div>
               <div className="field-shell">
@@ -57,7 +97,7 @@ export default function Applications() {
                   {FILTER_STATUSES.map((s) => <option key={s} value={s}>{s ? s[0].toUpperCase() + s.slice(1) : 'All statuses'}</option>)}
                 </select>
               </div>
-              <GhostButton className="justify-self-start md:justify-self-stretch" onClick={() => load()}>Apply</GhostButton>
+              <GhostButton className="justify-self-start md:justify-self-stretch" onClick={() => load(filters)}>Apply</GhostButton>
             </div>
           </div>
           <div className="mobile-list flex md:hidden">
@@ -75,20 +115,10 @@ export default function Applications() {
                     {a.eligible ? <span className="pill pill-selected">Eligible</span> : <EligibilityPill reason={a.ineligible_reason} />}
                   </div>
                 </div>
-                <form
-                  className="actions items-center"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    updateStatus(a, new FormData(e.target).get('status'))
-                  }}
-                >
-                  <div className="field-shell min-w-0 flex-1">
-                    <select name="status" defaultValue={a.status} className="field-input !py-2 !text-xs">
-                      {STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
-                    </select>
-                  </div>
-                  <GhostButton type="submit" className="!px-4 !py-2 !text-xs">Save</GhostButton>
-                </form>
+                <div className="actions w-full flex-col items-stretch !gap-1.5">
+                  {statusForm(a)}
+                  <span className="text-[10px] text-ink-low">Optional note — visible to the student in status history.</span>
+                </div>
               </div>
             ))}
             {!applications.length && <p className="py-8 text-center text-sm text-ink-low">No applications match.</p>}
@@ -131,20 +161,7 @@ export default function Applications() {
                       {a.eligible ? <span className="pill pill-selected">Eligible</span> : <EligibilityPill reason={a.ineligible_reason} />}
                     </td>
                     <td className="px-2 py-3">
-                      <form
-                        className="flex items-center gap-2"
-                        onSubmit={(e) => {
-                          e.preventDefault()
-                          updateStatus(a, new FormData(e.target).get('status'))
-                        }}
-                      >
-                        <div className="field-shell !w-[130px]">
-                          <select name="status" defaultValue={a.status} className="field-input !px-3 !py-1.5 !text-xs">
-                            {STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
-                          </select>
-                        </div>
-                        <GhostButton type="submit" className="!px-3.5 !py-1.5 !text-xs">Save</GhostButton>
-                      </form>
+                      {statusForm(a)}
                     </td>
                   </tr>
                 ))}

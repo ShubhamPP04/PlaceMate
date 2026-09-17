@@ -68,6 +68,16 @@ export default function StudentDetail() {
         </div>
         <div className="flex items-center gap-3">
           <StatusPill status={student.status} />
+          {student.resume && (
+            <a
+              href={api.studentResumeUrl(student.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ghost"
+            >
+              Resume ↗
+            </a>
+          )}
           <GhostButton onClick={() => navigate(-1)}>← Back</GhostButton>
         </div>
       </div>

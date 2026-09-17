@@ -50,6 +50,7 @@ class Student(db.Model):
     user = db.relationship("User", back_populates="student")
     applications = db.relationship("Application", back_populates="student", lazy="dynamic")
     placement_records = db.relationship("PlacementRecord", back_populates="student")
+    resume = db.relationship("StudentResume", uselist=False, cascade="all, delete-orphan")
 
     @property
     def skill_list(self):
@@ -187,6 +188,39 @@ class PlacementRecord(db.Model):
 
     student = db.relationship("Student", back_populates="placement_records")
     drive = db.relationship("Drive", back_populates="placement_records")
+
+
+class RecoveryRequest(db.Model):
+    """Manual identity-verification queue; at most one pending request per student."""
+
+    __tablename__ = "recovery_requests"
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    resolved_at = db.Column(db.DateTime)
+    student = db.relationship("Student")
+    __table_args__ = (
+        db.Index("uq_recovery_pending_student", "student_id", unique=True,
+                 sqlite_where=db.text("resolved_at IS NULL"),
+                 postgresql_where=db.text("resolved_at IS NULL")),
+    )
+
+
+class StudentResume(db.Model):
+    """Private PDF content, never served through the static file system."""
+
+    __tablename__ = "student_resumes"
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), unique=True, nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    content = db.deferred(db.Column(db.LargeBinary, nullable=False))
+    size = db.Column(db.Integer, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    __table_args__ = (db.CheckConstraint("size > 0 AND size <= 2097152", name="resume_size_limit"),)
+
+    def metadata_dict(self):
+        return {"filename": self.filename, "size": self.size,
+                "updated_at": self.updated_at.isoformat()}
 
 
 def top_offer_lpa(student_id):

@@ -17,6 +17,7 @@ const STUDENT_RAIL = [
   { to: '/portal', label: 'Home', short: 'Home', dots: true },
   { to: '/portal/drives', label: 'Drives', short: 'Drives' },
   { to: '/portal/applications', label: 'Applications', short: 'Apps' },
+  { to: '/portal/calendar', label: 'Calendar', short: 'Calendar' },
   { to: '/portal/profile', label: 'Profile', short: 'You' },
 ]
 
@@ -29,6 +30,7 @@ const RAIL_ICONS = {
   '/portal': 'M3 12l9-9 9 9M5 10v10a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4h2v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V10',
   '/portal/drives': 'M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z',
   '/portal/applications': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6',
+  '/portal/calendar': 'M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM8 14h2M14 14h2M8 18h2',
   '/portal/profile': 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
 }
 
@@ -83,6 +85,8 @@ export default function Layout({ user, onLogout }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [recent, setRecent] = useState([])
+  const [logoutBusy, setLogoutBusy] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
   const isStudent = user?.role === 'student'
   const rail = isStudent ? STUDENT_RAIL : ADMIN_RAIL
   const home = isStudent ? '/portal' : '/dashboard'
@@ -122,8 +126,18 @@ export default function Layout({ user, onLogout }) {
   }, [location.pathname])
 
   async function handleLogout() {
-    await onLogout()
-    navigate('/login')
+    if (logoutBusy) return
+    setLogoutBusy(true)
+    setLogoutError('')
+    try {
+      await api.logout()
+      await onLogout()
+      navigate('/login', { replace: true })
+    } catch (err) {
+      setLogoutError(`Could not sign out: ${err.message}. Please try again.`)
+    } finally {
+      setLogoutBusy(false)
+    }
   }
 
   return (
@@ -155,7 +169,7 @@ export default function Layout({ user, onLogout }) {
 
           <div className="mt-auto flex flex-col gap-2">
             <ThemeToggle className="rail-btn !h-[42px] !w-[42px] !rounded-full border !border-hairline !bg-transparent" />
-            <button onClick={handleLogout} title="Logout" className="rail-btn exit" type="button">
+            <button onClick={handleLogout} disabled={logoutBusy} title={logoutBusy ? 'Signing out…' : 'Logout'} className="rail-btn exit" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]">
                 <path d="M15 12H3M7 8l-4 4 4 4M13 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" />
               </svg>
@@ -240,7 +254,8 @@ export default function Layout({ user, onLogout }) {
               <button
                 type="button"
                 onClick={handleLogout}
-                title="Logout"
+                disabled={logoutBusy}
+                title={logoutBusy ? 'Signing out…' : 'Logout'}
                 className="rail-btn exit !h-10 !w-10"
                 aria-label="Log out"
               >
@@ -252,6 +267,7 @@ export default function Layout({ user, onLogout }) {
           </header>
 
           <main id="pm-main" className="mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-4 sm:p-5 md:p-7">
+            {logoutError && <p role="alert" className="mb-4 rounded-xl border border-coral/25 bg-coral/10 p-3 text-sm text-coral">{logoutError}</p>}
             <Outlet />
           </main>
 

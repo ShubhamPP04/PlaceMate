@@ -2,10 +2,11 @@
 from functools import wraps
 
 from flask import Blueprint, g, jsonify, request, session
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash
 
 from ..extensions import db
-from ..models import User
+from ..models import RecoveryRequest, Student, User
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -26,6 +27,29 @@ def login_required(role=None):
         return wrapped
 
     return decorator
+
+
+@auth_bp.post("/recovery-request")
+def recovery_request():
+    data = request.get_json(silent=True)
+    email = data.get("email") if isinstance(data, dict) else None
+    if not isinstance(email, str) or not email.strip() or len(email.strip()) > 120:
+        return jsonify(error="A valid email is required."), 400
+    student = Student.query.join(User, Student.user_id == User.id).filter(
+        db.func.lower(Student.email) == email.strip().lower(), User.role == "student"
+    ).first()
+    if student and not RecoveryRequest.query.filter_by(
+        student_id=student.id, resolved_at=None
+    ).first():
+        db.session.add(RecoveryRequest(student_id=student.id))
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # The unique pending index also deduplicates concurrent requests.
+            db.session.rollback()
+    response = jsonify(message="If an eligible account exists, a recovery request has been sent to the placement cell.")
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @auth_bp.post("/login")

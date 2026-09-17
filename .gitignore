@@ -27,6 +27,15 @@ frontend/dist-ssr/
 *.suo
 
 # Plans / local tooling
+.agents/
+.claude/
+skills-lock.json
 .zcode/
+
+# Document build dependencies and review images
+paper/node_modules/
+paper/page-*.png
+paper/slide-*.jpg
+paper/slide-*.png
 .vercel
 .env*.local

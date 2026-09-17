@@ -5,3 +5,4 @@ pandas==2.3.3
 numpy>=2.2,<3
 cryptography>=44.0
 flask-cors==6.0.1
+pypdf>=6.19,<7

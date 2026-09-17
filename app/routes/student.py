@@ -1,15 +1,18 @@
 """Student portal API — profile, drives with eligibility, applications, notices."""
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
+import io
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, jsonify, request, send_file
+from pypdf import PdfReader
+from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from .auth import login_required
 from ..extensions import db
 from ..models import (Application, ApplicationStatusHistory, Drive, Notice, Student,
-                      placement_policy_reason, top_offer_lpa)
+                      StudentResume, PlacementRecord, placement_policy_reason, top_offer_lpa)
 
 portal_bp = Blueprint("portal", __name__)
 
@@ -27,6 +30,7 @@ def _profile_dict(s: Student):
         "graduation_year": s.graduation_year,
         "skills": s.skill_list,
         "status": s.status,
+        "resume": s.resume.metadata_dict() if s.resume else None,
     }
 
 
@@ -159,14 +163,126 @@ def apply(did):
     return jsonify(application={"id": app_row.id, "status": app_row.status}), 201
 
 
+MAX_RESUME_BYTES = 2 * 1024 * 1024  # 2 MB
+
+
+def _student_or_none():
+    student = Student.query.filter_by(user_id=g.user_id).first()
+    if not student:
+        return None
+    return student
+
+
+@portal_bp.get("/resume")
+@login_required(role="student")
+def resume_metadata():
+    student = _student_or_none()
+    if not student:
+        return jsonify(error="Student profile not found. Contact the placement cell."), 404
+    resume = StudentResume.query.filter_by(student_id=student.id).first()
+    return jsonify(resume=resume.metadata_dict() if resume else None)
+
+
+@portal_bp.post("/resume")
+@login_required(role="student")
+def upload_resume():
+    student = _student_or_none()
+    if not student:
+        return jsonify(error="Student profile not found. Contact the placement cell."), 404
+    request.max_content_length = MAX_RESUME_BYTES + 64 * 1024
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify(error="Attach a PDF in the 'file' field."), 400
+    filename = secure_filename(file.filename) or "resume.pdf"
+    if len(filename) > 255:
+        return jsonify(error="Filename must be 255 characters or fewer."), 400
+    if not filename.lower().endswith(".pdf"):
+        return jsonify(error="Only PDF files are accepted."), 400
+    blob = file.read(MAX_RESUME_BYTES + 1)
+    if not blob:
+        return jsonify(error="The uploaded file is empty."), 400
+    if len(blob) > MAX_RESUME_BYTES:
+        return jsonify(error="Resume must be 2 MB or smaller."), 413
+    try:
+        reader = PdfReader(io.BytesIO(blob), strict=True)
+        if reader.is_encrypted or not reader.pages:
+            raise ValueError("Encrypted or empty PDF")
+        for page in reader.pages:
+            _ = page.mediabox  # force page-tree parsing before persisting
+    except Exception:
+        return jsonify(error="That file is not a readable PDF."), 400
+    resume = StudentResume.query.filter_by(student_id=student.id).first()
+    if resume:
+        resume.filename = filename
+        resume.content = blob
+        resume.size = len(blob)
+        resume.updated_at = datetime.utcnow()
+    else:
+        resume = StudentResume(student_id=student.id, filename=filename,
+                               content=blob, size=len(blob))
+        db.session.add(resume)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify(error="Could not save the resume. Try again."), 409
+    return jsonify(resume=resume.metadata_dict()), 201
+
+
+@portal_bp.get("/resume/download")
+@login_required(role="student")
+def download_resume():
+    student = _student_or_none()
+    if not student:
+        return jsonify(error="Student profile not found. Contact the placement cell."), 404
+    resume = StudentResume.query.filter_by(student_id=student.id).first()
+    if not resume:
+        return jsonify(error="No resume uploaded yet."), 404
+    response = send_file(io.BytesIO(resume.content), mimetype="application/pdf",
+                         as_attachment=True, download_name=resume.filename)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@portal_bp.delete("/resume")
+@login_required(role="student")
+def delete_resume():
+    student = _student_or_none()
+    if not student:
+        return jsonify(error="Student profile not found. Contact the placement cell."), 404
+    resume = StudentResume.query.filter_by(student_id=student.id).first()
+    if not resume:
+        return jsonify(resume=None)
+    db.session.delete(resume)
+    db.session.commit()
+    return jsonify(resume=None)
+
+
 @portal_bp.get("/applications")
 @login_required(role="student")
 def applications():
     student = Student.query.filter_by(user_id=g.user_id).first()
     rows = Application.query \
+        .options(
+            # Drive and company are read per row below; loading them eagerly
+            # keeps this one query instead of two queries per application.
+            joinedload(Application.drive).joinedload(Drive.company),
+        ) \
         .filter_by(student_id=student.id if student else -1) \
         .join(Drive) \
         .order_by(Application.applied_at.desc()).all()
+    offer_map = {}
+    if rows:
+        # One query for every real offer of this student, keyed by drive —
+        # never a PlacementRecord lookup per application row.
+        offer_map = {
+            record.drive_id: record
+            for record in PlacementRecord.query.filter(
+                PlacementRecord.student_id == student.id,
+                PlacementRecord.drive_id.in_([a.drive_id for a in rows]),
+            ).all()
+        }
     history = defaultdict(list)
     if rows:
         hs = (ApplicationStatusHistory.query
@@ -188,9 +304,20 @@ def applications():
             "drive_date": a.drive.drive_date.isoformat() if a.drive.drive_date else None,
             "status": a.status,
             "applied_at": a.applied_at.strftime("%d %b %Y"),
+            "offer": _real_offer_dict(offer_map.get(a.drive_id)),
             "history": history.get(a.id, []),
         } for a in rows]
     )
+
+
+def _real_offer_dict(record: PlacementRecord | None):
+    """Serialize an already-loaded actual offer (no per-row database queries)."""
+    if not record:
+        return None
+    return {
+        "package_lpa": record.package_lpa,
+        "offered_on": record.offered_on.isoformat() if record.offered_on else None,
+    }
 
 
 @portal_bp.patch("/profile")

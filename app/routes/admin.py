@@ -6,10 +6,16 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 import pandas as pd
-from flask import Blueprint, g, jsonify, request, send_file
+from flask import Blueprint, abort, g, jsonify, request, send_file
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
+
+from .auth import login_required
+from ..extensions import db
+from ..models import (PROGRAMS, Application, ApplicationStatusHistory, Company, Drive,
+                      Notice, PlacementRecord, RecoveryRequest, Student, StudentResume,
+                      User, placement_policy_reason)
 
 log = logging.getLogger(__name__)
 
@@ -23,15 +29,12 @@ def _save_error(exc, fallback="Could not save changes. The data may conflict wit
 
 
 def _csv_safe(v):
-    """Neutralize spreadsheet formula injection (=,+,-,@ leading cells)."""
-    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@"):
+    """Neutralize formulas, including those hidden behind whitespace/control characters."""
+    if isinstance(v, str) and (v.lstrip()[:1] in ("=", "+", "-", "@")
+                               or v.startswith(("\t", "\r", "\n"))):
         return "'" + v
     return v
 
-from .auth import login_required
-from ..extensions import db
-from ..models import (PROGRAMS, Application, ApplicationStatusHistory, Company, Drive,
-                      Notice, PlacementRecord, Student, User, placement_policy_reason)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -49,6 +52,7 @@ def _student_dict(s: Student):
         "graduation_year": s.graduation_year,
         "skills": s.skill_list,
         "status": s.status,
+        "resume": s.resume.metadata_dict() if s.resume else None,
     }
 
 
@@ -116,6 +120,48 @@ def _offer_dict(r: PlacementRecord):
         "drive_package_lpa": r.drive.package_lpa,
         "offered_on": r.offered_on.isoformat() if r.offered_on else None,
     }
+
+
+@admin_bp.get("/recovery-requests")
+@login_required(role="admin")
+def recovery_requests():
+    rows = RecoveryRequest.query.options(joinedload(RecoveryRequest.student)).filter_by(
+        resolved_at=None).order_by(RecoveryRequest.created_at, RecoveryRequest.id).all()
+    response = jsonify(requests=[{
+        "id": row.id, "student_id": row.student_id,
+        "student_name": row.student.name, "email": row.student.email,
+        "created_at": row.created_at.isoformat(),
+    } for row in rows])
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@admin_bp.post("/recovery-requests/<int:rid>/resolve")
+@login_required(role="admin")
+def resolve_recovery_request(rid):
+    # The admin UI performs manual identity confirmation before invoking this action.
+    # Claim with a conditional UPDATE, not a read-then-write, so concurrent calls
+    # cannot both reset the password. Claim and password reset share one commit.
+    claimed = RecoveryRequest.query.filter_by(id=rid, resolved_at=None).update(
+        {RecoveryRequest.resolved_at: db.func.now()}, synchronize_session=False)
+    if not claimed:
+        db.session.rollback()
+        return jsonify(error="Recovery request is missing or already resolved."), 409
+    row = db.session.get(RecoveryRequest, rid)
+    student = db.session.get(Student, row.student_id)
+    user = db.session.get(User, student.user_id) if student and student.user_id else None
+    if not user or user.role != "student":
+        db.session.rollback()
+        return jsonify(error="Student login not found."), 404
+    temp_password = secrets.token_urlsafe(18)
+    user.set_password(temp_password)
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return _save_error(exc, "Could not resolve recovery request.")
+    response = jsonify(temp_password=temp_password)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ---------------------------------------------------------------- dashboard
@@ -251,9 +297,7 @@ def dashboard():
 
 # ------------------------------------------------------------------ students
 
-@admin_bp.get("/students")
-@login_required(role="admin")
-def list_students():
+def _students_query():
     q = request.args.get("q", "").strip()
     dept = request.args.get("dept", "")
     status = request.args.get("status", "")
@@ -268,6 +312,14 @@ def list_students():
         query = query.filter(Student.status == status)
     if program:
         query = query.filter(Student.program == program)
+
+    return query
+
+
+@admin_bp.get("/students")
+@login_required(role="admin")
+def list_students():
+    query = _students_query()
 
     departments = sorted({r[0] for r in Student.query.with_entities(Student.department).distinct()})
     programs = sorted({r[0] for r in Student.query.with_entities(Student.program).distinct()})
@@ -308,6 +360,20 @@ def add_student():
         return _save_error(exc, f"Invalid value: {exc}")
 
 
+@admin_bp.get("/students/<int:sid>/resume")
+@login_required(role="admin")
+def admin_download_resume(sid):
+    student = db.get_or_404(Student, sid)
+    resume = StudentResume.query.filter_by(student_id=student.id).first()
+    if not resume:
+        return jsonify(error="No resume uploaded."), 404
+    response = send_file(io.BytesIO(resume.content), mimetype="application/pdf",
+                         as_attachment=True, download_name=resume.filename)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @admin_bp.delete("/students/<int:sid>")
 @login_required(role="admin")
 def delete_student(sid):
@@ -319,8 +385,10 @@ def delete_student(sid):
         ApplicationStatusHistory.query.filter(
             ApplicationStatusHistory.application_id.in_(app_ids)
         ).delete(synchronize_session=False)
-    Application.query.filter_by(student_id=student.id).delete(synchronize_session=False)
     PlacementRecord.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    Application.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    StudentResume.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    RecoveryRequest.query.filter_by(student_id=student.id).delete(synchronize_session=False)
     user = db.session.get(User, student.user_id) if student.user_id else None
     if user:
         db.session.delete(user)
@@ -523,13 +591,18 @@ def import_students():
 
 # ----------------------------------------------------------------- companies
 
-@admin_bp.get("/companies")
-@login_required(role="admin")
-def list_companies():
+def _companies_query():
     q = request.args.get("q", "").strip()
     query = Company.query
     if q:
         query = query.filter(Company.name.ilike(f"%{q}%"))
+    return query
+
+
+@admin_bp.get("/companies")
+@login_required(role="admin")
+def list_companies():
+    query = _companies_query()
     counts = dict(db.session.query(Drive.company_id, db.func.count()).group_by(Drive.company_id).all())
     return jsonify(companies=[_company_dict(c, counts.get(c.id, 0)) for c in query.order_by(Company.name)])
 
@@ -615,9 +688,7 @@ def delete_company(cid):
 
 # -------------------------------------------------------------------- drives
 
-@admin_bp.get("/drives")
-@login_required(role="admin")
-def list_drives():
+def _drives_query():
     q = request.args.get("q", "").strip()
     status = request.args.get("status", "")  # active | closed
     company_id = request.args.get("company", "").strip()
@@ -633,12 +704,21 @@ def list_drives():
         try:
             query = query.filter(Drive.company_id == int(company_id))
         except ValueError:
-            return jsonify(error="Invalid company filter"), 400
+            response = jsonify(error="Invalid company filter")
+            response.status_code = 400
+            abort(response)
     if status == "active":
         query = query.filter(Drive.is_active.is_(True))
     elif status == "closed":
         query = query.filter(Drive.is_active.is_(False))
     query = query.join(Company)
+    return query
+
+
+@admin_bp.get("/drives")
+@login_required(role="admin")
+def list_drives():
+    query = _drives_query()
     drives = query.order_by(Drive.is_active.desc(), Drive.drive_date).all()
 
     companies = [{"id": c.id, "name": c.name} for c in Company.query.order_by(Company.name)]
@@ -791,9 +871,7 @@ def drive_targets(did):
 
 # -------------------------------------------------------------- applications
 
-@admin_bp.get("/applications")
-@login_required(role="admin")
-def list_applications():
+def _applications_query():
     q = request.args.get("q", "").strip()
     status = request.args.get("status", "")
 
@@ -810,6 +888,13 @@ def list_applications():
         ))
     if status:
         query = query.filter(Application.status == status)
+    return query
+
+
+@admin_bp.get("/applications")
+@login_required(role="admin")
+def list_applications():
+    query = _applications_query()
     rows = query.order_by(Application.applied_at.desc()).all()
     return jsonify(applications=[_application_dict(a) for a in rows])
 
@@ -835,14 +920,18 @@ def application_detail(aid):
 @admin_bp.post("/applications/<int:aid>/status")
 @login_required(role="admin")
 def set_application_status(aid):
-    new_status = (request.get_json(silent=True) or {}).get("status")
+    data = request.get_json(silent=True) or {}
+    new_status = data.get("status")
+    note = data.get("note")
+    if note is not None and (not isinstance(note, str) or len(note) > 2000):
+        return jsonify(error="Note must be text of at most 2000 characters."), 400
     if new_status not in ("applied", "shortlisted", "selected", "rejected"):
         return jsonify(error="Invalid status"), 400
     app_row = db.get_or_404(Application, aid)
     app_row.status = new_status
     db.session.add(ApplicationStatusHistory(
         application_id=app_row.id, status=new_status,
-        note=(request.get_json(silent=True) or {}).get("note") or None,
+        note=(note.strip() or None) if isinstance(note, str) else None,
         changed_by=g.user_id,
     ))
     # Placement offers mirror "selected" applications: create on selection,
@@ -913,7 +1002,7 @@ def delete_notice(nid):
 
 EXPORTERS = {
     "students": {"title": "students", "columns": [
-        "roll_no", "name", "email", "phone", "department", "cgpa",
+        "roll_no", "name", "email", "phone", "program", "department", "cgpa",
         "graduation_year", "skills", "status",
     ]},
     "companies": {"title": "companies", "columns": [
@@ -921,7 +1010,7 @@ EXPORTERS = {
     ]},
     "drives": {"title": "drives", "columns": [
         "id", "title", "company", "role", "package_lpa", "min_cgpa",
-        "eligible_departments", "drive_date", "application_deadline",
+        "eligible_departments", "eligible_programs", "drive_date", "application_deadline",
         "is_active", "is_accepting", "applications_count",
     ]},
     "applications": {"title": "applications", "columns": [
@@ -931,25 +1020,25 @@ EXPORTERS = {
 }
 
 
-def _export_frame(entity):
+def _export_rows(entity):
     if entity == "students":
         rows = [{
             "roll_no": s.roll_no, "name": s.name, "email": s.email, "phone": s.phone or "",
             "program": s.program, "department": s.department, "cgpa": s.cgpa,
             "graduation_year": s.graduation_year,
             "skills": ", ".join(s.skill_list), "status": s.status,
-        } for s in Student.query.order_by(Student.roll_no)]
-        return pd.DataFrame([{k: _csv_safe(v) for k, v in r.items()} for r in rows])
+        } for s in _students_query().order_by(Student.roll_no)]
+        return rows
     if entity == "companies":
-        return pd.DataFrame([{
-            "name": _csv_safe(c.name), "industry": _csv_safe(c.industry),
-            "website": _csv_safe(c.website),
-            "hr_email": _csv_safe(c.hr_email), "drives_count": c.drives.count(),
-        } for c in Company.query.order_by(Company.name)])
+        return [{
+            "name": c.name, "industry": c.industry,
+            "website": c.website,
+            "hr_email": c.hr_email, "drives_count": c.drives.count(),
+        } for c in _companies_query().order_by(Company.name)]
     if entity == "drives":
-        return pd.DataFrame([{
-            "id": d.id, "title": _csv_safe(d.title), "company": _csv_safe(d.company.name),
-            "role": _csv_safe(d.role),
+        return [{
+            "id": d.id, "title": d.title, "company": d.company.name,
+            "role": d.role,
             "package_lpa": d.package_lpa, "min_cgpa": d.min_cgpa,
             "eligible_departments": d.eligible_departments or "",
             "eligible_programs": d.eligible_programs or "",
@@ -957,14 +1046,20 @@ def _export_frame(entity):
             "application_deadline": d.application_deadline.isoformat() if d.application_deadline else "",
             "is_active": d.is_active, "is_accepting": d.is_accepting,
             "applications_count": d.applications.count(),
-        } for d in Drive.query.order_by(Drive.drive_date)])
+        } for d in _drives_query().order_by(Drive.is_active.desc(), Drive.drive_date)]
     # applications
-    return pd.DataFrame([{
-        "id": a.id, "student": _csv_safe(a.student.name), "roll_no": a.student.roll_no,
-        "department": a.student.department, "company": _csv_safe(a.drive.company.name),
-        "role": _csv_safe(a.drive.role), "status": a.status,
+    return [{
+        "id": a.id, "student": a.student.name, "roll_no": a.student.roll_no,
+        "department": a.student.department, "company": a.drive.company.name,
+        "role": a.drive.role, "status": a.status,
         "applied_at": a.applied_at.strftime("%d %b %Y") if a.applied_at else "",
-    } for a in Application.query.order_by(Application.applied_at.desc())])
+    } for a in _applications_query().order_by(Application.applied_at.desc())]
+
+
+def _export_frame(entity):
+    return pd.DataFrame(
+        [{key: _csv_safe(value) for key, value in row.items()}
+         for row in _export_rows(entity)], columns=EXPORTERS[entity]["columns"])
 
 
 @admin_bp.get("/export/<entity>")

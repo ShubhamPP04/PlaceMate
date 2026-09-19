@@ -1,10 +1,15 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .extensions import db
 
 PROGRAMS = ("B.Tech",)
+
+
+def utcnow():
+    """Timezone-aware UTC now — replaces the deprecated datetime.utcnow."""
+    return datetime.now(timezone.utc)
 
 
 class User(db.Model):
@@ -15,7 +20,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(120), nullable=False)
     role = db.Column(db.Enum("admin", "student", name="user_roles"), default="student")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     student = db.relationship("Student", back_populates="user", uselist=False)
 
@@ -45,7 +50,7 @@ class Student(db.Model):
         default="unplaced",
         index=True,
     )
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship("User", back_populates="student")
     applications = db.relationship("Application", back_populates="student", lazy="dynamic")
@@ -65,7 +70,7 @@ class Company(db.Model):
     industry = db.Column(db.String(80), index=True)
     website = db.Column(db.String(255))
     hr_email = db.Column(db.String(120))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     drives = db.relationship("Drive", back_populates="company", lazy="dynamic")
 
@@ -86,7 +91,7 @@ class Drive(db.Model):
     drive_date = db.Column(db.Date)
     application_deadline = db.Column(db.Date, nullable=True)  # open-ended when null
     is_active = db.Column(db.Boolean, default=True, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     company = db.relationship("Company", back_populates="drives")
     applications = db.relationship("Application", back_populates="drive", lazy="dynamic")
@@ -133,7 +138,7 @@ class Application(db.Model):
         default="applied",
         index=True,
     )
-    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
+    applied_at = db.Column(db.DateTime, default=utcnow)
 
     student = db.relationship("Student", back_populates="applications")
     drive = db.relationship("Drive", back_populates="applications")
@@ -151,7 +156,7 @@ class Notice(db.Model):
     title = db.Column(db.String(150), nullable=False)
     body = db.Column(db.Text, nullable=False)
     audience = db.Column(db.Enum("all", "students", name="notice_audience"), default="students")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 PLACEMENT_LADDER_LPA = 2.0  # a placed student may only sit for drives paying this much above their best offer
@@ -167,7 +172,7 @@ class ApplicationStatusHistory(db.Model):
     status = db.Column(db.String(20), nullable=False)  # mirrors application_status values
     note = db.Column(db.Text)
     changed_by = db.Column(db.Integer, db.ForeignKey("users.id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     application = db.relationship("Application", back_populates="history")
 
@@ -184,7 +189,7 @@ class PlacementRecord(db.Model):
     application_id = db.Column(db.Integer, db.ForeignKey("applications.id"))
     package_lpa = db.Column(db.Float)  # actual offered CTC; defaults to the drive's advertised package
     offered_on = db.Column(db.Date, default=date.today)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     student = db.relationship("Student", back_populates="placement_records")
     drive = db.relationship("Drive", back_populates="placement_records")
@@ -196,7 +201,7 @@ class RecoveryRequest(db.Model):
     __tablename__ = "recovery_requests"
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     resolved_at = db.Column(db.DateTime)
     student = db.relationship("Student")
     __table_args__ = (
@@ -215,7 +220,7 @@ class StudentResume(db.Model):
     filename = db.Column(db.String(255), nullable=False)
     content = db.deferred(db.Column(db.LargeBinary, nullable=False))
     size = db.Column(db.Integer, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     __table_args__ = (db.CheckConstraint("size > 0 AND size <= 2097152", name="resume_size_limit"),)
 
     def metadata_dict(self):

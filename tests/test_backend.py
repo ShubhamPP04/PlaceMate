@@ -2,6 +2,7 @@
 import csv
 import io
 import unittest
+from datetime import date
 
 from flask import Flask
 from pypdf import PdfWriter
@@ -11,12 +12,13 @@ from app.models import (Application, ApplicationStatusHistory, Company, Drive,
                         PlacementRecord, RecoveryRequest, Student, StudentResume, User)
 from app.routes.student import MAX_RESUME_BYTES
 from app.routes.admin import admin_bp
-from app.routes.auth import auth_bp
+from app.routes.auth import _ATTEMPTS, auth_bp
 from app.routes.student import portal_bp
 
 
 class BackendContracts(unittest.TestCase):
     def setUp(self):
+        _ATTEMPTS.clear()  # rate limiter is process-global; isolate each test
         self.app = Flask(__name__)
         self.app.config.update(TESTING=True, SECRET_KEY="isolated-test-only",
                                SQLALCHEMY_DATABASE_URI="sqlite:///:memory:")
@@ -245,8 +247,10 @@ class BackendContracts(unittest.TestCase):
             event.remove(db.engine, "before_cursor_execute", capture)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json["applications"]), 2)
-        # Student, applications joined to drive/company, offers, and history.
-        self.assertEqual(len(statements), 4, statements)
+        # Session user (auth freshness), student, applications joined to
+        # drive/company, offers, and history.
+        self.assertEqual(len(statements), 5, statements)
+        self.assertEqual(sum("FROM users" in sql for sql in statements), 1)
         self.assertEqual(sum("FROM placement_records" in sql for sql in statements), 1)
 
     def test_exports_match_lists_and_keep_empty_headers(self):
@@ -310,6 +314,66 @@ class BackendContracts(unittest.TestCase):
         self.assertEqual(PlacementRecord.query.count(), 0)
         self.assertEqual(Application.query.filter_by(student_id=sid).count(), 0)
         self.assertEqual(ApplicationStatusHistory.query.count(), 0)
+
+    def test_drives_list_tolerates_null_drive_date(self):
+        """Regression: sorting mixed date/None used to raise TypeError (500)."""
+        self.login()
+        company = Company(name="Acme", industry="Software")
+        db.session.add(company)
+        db.session.flush()
+        dated = Drive(company_id=company.id, title="Dated", role="Engineer",
+                      drive_date=date(2027, 1, 1))
+        undated = Drive(company_id=company.id, title="Undated", role="Analyst")  # no drive_date
+        db.session.add_all([dated, undated])
+        db.session.commit()
+
+        response = self.client.get("/admin/drives")
+        self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+        titles = [d["title"] for d in response.json["drives"]]
+        self.assertEqual(titles, ["Dated", "Undated"])  # dated first, nulls last
+
+        export = self.client.get("/admin/export/drives")
+        self.assertEqual(export.status_code, 200, export.get_data(as_text=True))
+
+    def test_session_reflects_admin_edits_without_relogin(self):
+        """Regression: name/role were snapshotted at login and went stale."""
+        student_client = self.app.test_client()
+        self.login(self.students[0].email, "originalpass", client=student_client)
+        self.assertEqual(student_client.get("/auth/me").json["user"]["name"], "Student 0")
+
+        self.login()  # admin renames the student
+        result = self.client.put(f"/admin/students/{self.students[0].id}",
+                                 json={"name": "Renamed Student"})
+        self.assertEqual(result.status_code, 200)
+
+        # The already-logged-in student sees the new name on the next request.
+        self.assertEqual(student_client.get("/auth/me").json["user"]["name"], "Renamed Student")
+
+    def test_deleted_user_session_is_revoked(self):
+        """A deleted account's session must stop authorizing immediately."""
+        student_client = self.app.test_client()
+        self.login(self.students[0].email, "originalpass", client=student_client)
+        self.assertEqual(student_client.get("/portal/summary").status_code, 200)
+
+        self.login()  # admin deletes the student (and its login)
+        self.client.delete(f"/admin/students/{self.students[0].id}")
+
+        self.assertEqual(student_client.get("/portal/summary").status_code, 401)
+        self.assertEqual(student_client.get("/auth/me").status_code, 401)
+
+    def test_login_rate_limit(self):
+        for _ in range(10):
+            self.assertEqual(self.client.post("/auth/login", json={
+                "email": "admin@test.test", "password": "wrong"}).status_code, 401)
+        self.assertEqual(self.client.post("/auth/login", json={
+            "email": "admin@test.test", "password": "adminpass"}).status_code, 429)
+
+    def test_recovery_rate_limit(self):
+        for _ in range(5):
+            self.assertEqual(self.client.post("/auth/recovery-request", json={
+                "email": "student0@test.test"}).status_code, 200)
+        self.assertEqual(self.client.post("/auth/recovery-request", json={
+            "email": "student0@test.test"}).status_code, 429)
 
 
 if __name__ == "__main__":

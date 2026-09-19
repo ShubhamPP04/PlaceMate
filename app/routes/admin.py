@@ -546,7 +546,8 @@ def import_students():
     credentials = []  # one-time passwords for newly provisioned logins
     for i, row in df.iterrows():
         idx = i + 2  # 1-based row + header
-        record = {str(c).strip(): ("" if pd.isna(v) else v) for c, v in row.items()}
+        record = {str(c).strip(): ("" if v is None or (isinstance(v, float) and pd.isna(v)) else v)
+                  for c, v in row.items()}
         roll = (record.get("roll_no") or "").strip()
         email = (record.get("email") or "").strip().lower()
         dept = (record.get("department") or "").strip()
@@ -719,7 +720,11 @@ def _drives_query():
 @login_required(role="admin")
 def list_drives():
     query = _drives_query()
-    drives = query.order_by(Drive.is_active.desc(), Drive.drive_date).all()
+    # drive_date is nullable; NULLS LAST keeps undated drives from crashing the sort.
+    drives = query.order_by(
+        Drive.is_active.desc(),
+        Drive.drive_date.asc().nulls_last(),
+    ).all()
 
     companies = [{"id": c.id, "name": c.name} for c in Company.query.order_by(Company.name)]
     counts = dict(db.session.query(Application.drive_id, db.func.count()).group_by(Application.drive_id).all())
@@ -1046,7 +1051,8 @@ def _export_rows(entity):
             "application_deadline": d.application_deadline.isoformat() if d.application_deadline else "",
             "is_active": d.is_active, "is_accepting": d.is_accepting,
             "applications_count": d.applications.count(),
-        } for d in _drives_query().order_by(Drive.is_active.desc(), Drive.drive_date)]
+        } for d in _drives_query().order_by(
+            Drive.is_active.desc(), Drive.drive_date.asc().nulls_last())]
     # applications
     return [{
         "id": a.id, "student": a.student.name, "roll_no": a.student.roll_no,

@@ -1,4 +1,6 @@
 """Auth API — session-based login/logout/me."""
+import time
+from collections import defaultdict, deque
 from functools import wraps
 
 from flask import Blueprint, g, jsonify, request, session
@@ -11,17 +13,67 @@ from ..models import RecoveryRequest, Student, User
 auth_bp = Blueprint("auth", __name__)
 
 
+# ---------------------------------------------------------------- rate limit
+# Simple in-memory fixed-window limiter. Good enough for a single-process
+# deployment; swap for Redis/Flask-Limiter if you ever run multiple workers.
+_ATTEMPTS = defaultdict(deque)
+
+
+def _client_ip():
+    # Trust the first X-Forwarded-For hop when behind a proxy (Vercel), else peer.
+    fwd = request.headers.get("X-Forwarded-For", "")
+    return (fwd.split(",")[0].strip() or request.remote_addr or "unknown")
+
+
+def _rate_limit(key, max_attempts, window_seconds):
+    """True if allowed; prunes old timestamps for this key."""
+    now = time.monotonic()
+    hits = _ATTEMPTS[key]
+    while hits and now - hits[0] > window_seconds:
+        hits.popleft()
+    if len(hits) >= max_attempts:
+        return False
+    hits.append(now)
+    return True
+
+
+def _rate_limited_response():
+    return jsonify(error="Too many attempts. Please try again later."), 429
+
+
+# ------------------------------------------------------------------ helpers
+
+def _load_user():
+    """Fetch the session user fresh from the DB; None if gone/invalid.
+
+    Keeps name/role in `g` and the session in sync so an admin edit (or a
+    deleted/demoted account) takes effect on the very next request instead of
+    after re-login.
+    """
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    user = db.session.get(User, user_id)
+    if user is None:
+        session.clear()
+        return None
+    if session.get("role") != user.role or session.get("name") != user.name:
+        session["role"] = user.role
+        session["name"] = user.name
+    return user
+
+
 def login_required(role=None):
     def decorator(view):
         @wraps(view)
         def wrapped(*args, **kwargs):
-            user_id = session.get("user_id")
-            if not user_id:
+            user = _load_user()
+            if not user:
                 return jsonify(error="Authentication required"), 401
-            if role and session.get("role") != role:
+            if role and user.role != role:
                 return jsonify(error="Forbidden"), 403
-            g.user_id = user_id
-            g.role = session.get("role")
+            g.user_id = user.id
+            g.role = user.role
             return view(*args, **kwargs)
 
         return wrapped
@@ -31,6 +83,8 @@ def login_required(role=None):
 
 @auth_bp.post("/recovery-request")
 def recovery_request():
+    if not _rate_limit(("recovery", _client_ip()), max_attempts=5, window_seconds=300):
+        return _rate_limited_response()
     data = request.get_json(silent=True)
     email = data.get("email") if isinstance(data, dict) else None
     if not isinstance(email, str) or not email.strip() or len(email.strip()) > 120:
@@ -54,6 +108,8 @@ def recovery_request():
 
 @auth_bp.post("/login")
 def login():
+    if not _rate_limit(("login", _client_ip()), max_attempts=10, window_seconds=300):
+        return _rate_limited_response()
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
@@ -90,6 +146,7 @@ def logout():
 
 @auth_bp.get("/me")
 def me():
-    if not session.get("user_id"):
+    user = _load_user()
+    if not user:
         return jsonify(user=None), 401
-    return jsonify(user={"id": session["user_id"], "name": session["name"], "role": session["role"]})
+    return jsonify(user={"id": user.id, "name": user.name, "email": user.email, "role": user.role})

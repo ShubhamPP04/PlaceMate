@@ -1,6 +1,6 @@
 """Student portal API — profile, drives with eligibility, applications, notices."""
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import io
 
 from flask import Blueprint, g, jsonify, request, send_file
@@ -216,7 +216,7 @@ def upload_resume():
         resume.filename = filename
         resume.content = blob
         resume.size = len(blob)
-        resume.updated_at = datetime.utcnow()
+        resume.updated_at = datetime.now(timezone.utc)
     else:
         resume = StudentResume(student_id=student.id, filename=filename,
                                content=blob, size=len(blob))

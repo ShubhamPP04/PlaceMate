@@ -82,7 +82,7 @@ Login uses an **email address as the username**. Copy-paste credentials:
 | Role | Username / email | Password |
 |---|---|---|
 | Admin | `admin@placemate.edu` | `admin123` (or `ADMIN_PASSWORD` if it was set on the `placemate-api` project before its first boot) |
-| Student | student email | No fixed password — log in as admin, open Students, create the student or Reset password, and hand over the one-time temp password shown |
+| Student (demo) | `demo.student@college.edu` | `JPCTtI4vPtg` (one-time temp password; if it stops working, an admin can Reset password for `DEMO001` on the Students page to issue a new one) |
 
 The isolated-demo accounts (`browser@admin.test`, `browser@student.test`) do
 **not** exist on Vercel — they only work with the local `tests/browser_fixture.py`

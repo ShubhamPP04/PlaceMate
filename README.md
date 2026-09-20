@@ -74,6 +74,20 @@ Login uses an **email address as the username**. Copy-paste credentials:
 | Admin (isolated demo) | `browser@admin.test` | `local-admin-test` | Created by `tests/browser_fixture.py` only |
 | Student (isolated demo) | `browser@student.test` | `local-browser-test` | Created by `tests/browser_fixture.py` only |
 
+### Deployed app (Vercel) — verified working
+
+- Frontend: `https://place-mate-lac.vercel.app/login`
+- API: `https://placemate-api.vercel.app` (frontend calls it via `VITE_API_URL`)
+
+| Role | Username / email | Password |
+|---|---|---|
+| Admin | `admin@placemate.edu` | `admin123` (or `ADMIN_PASSWORD` if it was set on the `placemate-api` project before its first boot) |
+| Student | student email | No fixed password — log in as admin, open Students, create the student or Reset password, and hand over the one-time temp password shown |
+
+The isolated-demo accounts (`browser@admin.test`, `browser@student.test`) do
+**not** exist on Vercel — they only work with the local `tests/browser_fixture.py`
+setup below.
+
 ### Local testing accounts (isolated demo only)
 
 These accounts are created by

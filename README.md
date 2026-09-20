@@ -10,8 +10,9 @@ motion-forward aesthetic.
 |---|---|
 | Frontend | React 19, Vite, Tailwind CSS 4, React Router, Recharts |
 | Backend | Python 3 / Flask 3, Flask-SQLAlchemy, Flask-CORS |
-| Database | PostgreSQL (`placement_db`) via psycopg |
-| Analytics | Pandas (department statistics aggregation) |
+| Database | PostgreSQL (`placement_db`) via psycopg (SQLite in-memory for tests / isolated demo fixture) |
+| Analytics | Pandas (department statistics aggregation + student CSV import; numpy comes transitively with pandas) |
+| Resumes | pypdf (PDF validation for student resume upload, 2 MB limit) |
 
 ## Project layout
 
@@ -176,6 +177,56 @@ Total students · Total companies · Active drives · Applications · Shortliste
 Selected · Placement % (with meter) · Highest & average package · Skill demand
 (horizontal bars) · Department statistics (table + placement-rate and avg-package
 charts), plus applications-over-time trend and application funnel.
+
+## Pandas usage (all in `app/routes/admin.py`, `import pandas as pd` at line 8)
+
+Pandas is used in 3 places. `numpy` is never imported directly — it ships
+transitively with `pandas==2.3.3` for the numeric backend (`mean`, `NaN`).
+
+### 1. Department statistics — `GET /api/admin/dashboard` (lines 228-247)
+Table used: `students` (`Student`: `department`, `status`, `cgpa`).
+
+```python
+df = pd.DataFrame(
+    [{"department": s.department, "status": s.status, "cgpa": s.cgpa} for s in students]
+)
+grouped = df.groupby("department").agg(total=("status", "size"), avg_cgpa=("cgpa", "mean"))
+placed = df[df["status"] == "selected"].groupby("department").size().rename("selected")
+grouped = grouped.join(placed).fillna({"selected": 0})
+grouped["pct"] = (grouped["selected"] / grouped["total"] * 100).round(1)
+```
+Per-department `total` + `avg_cgpa`, joined with the `selected` count to get
+placement `%`. Feeds `dept_stats` and the `deptPlacement` chart.
+
+### 2. Student CSV import — `POST /api/admin/students/import` (lines 533-549)
+Tables written: `students` (`Student`) + `users` (`User` login per student).
+
+```python
+df = pd.read_csv(io.StringIO(text), dtype=str)  # dtype=str keeps phone/roll-no as strings
+...
+for i, row in df.iterrows():
+    record = {str(c).strip(): ("" if v is None or (isinstance(v, float) and pd.isna(v)) else v)
+              for c, v in row.items()}
+```
+`read_csv` parses the upload; `pd.isna(v)` normalizes empty cells before each
+row creates a `Student` (+ `User` via `_ensure_student_user`).
+
+### 3. CSV export — `GET /api/admin/export/:entity` (lines 1065-1078)
+Tables read per entity: `students` → `students`; `companies` (+ drive counts) →
+`companies`; `drives` (+ `companies`) → `drives`; `applications` (+ `students`,
+`drives`, `companies`) → `applications`.
+
+```python
+def _export_frame(entity):
+    return pd.DataFrame(
+        [{key: _csv_safe(value) for key, value in row.items()}
+         for row in _export_rows(entity)], columns=EXPORTERS[entity]["columns"])
+
+df = _export_frame(entity)
+df.to_csv(buf, index=False)
+```
+Rows are built from the ORM, loaded into a `DataFrame` (fixed column order +
+formula-injection-safe cells), then streamed out with `to_csv`.
 
 ## CSV import format (`POST /api/admin/students/import`)
 

@@ -64,15 +64,19 @@ accepted and normalized to `postgresql://` for SQLAlchemy.
 
 ## Logins
 
+Login uses an **email address as the username**. Copy-paste credentials:
+
+| Role | Username / email | Password | Notes |
+|---|---|---|---|
+| Admin | `admin@placemate.edu` | `ADMIN_PASSWORD` if set, otherwise `admin123` | Normal local app (`./venv/bin/python run.py`); seeded on first backend start |
+| Student | student email (e.g. from `seed.py` output) | One-time temp password shown at creation/reset | No fixed shared password; see below |
+| Admin (isolated demo) | `browser@admin.test` | `local-admin-test` | Created by `tests/browser_fixture.py` only |
+| Student (isolated demo) | `browser@student.test` | `local-browser-test` | Created by `tests/browser_fixture.py` only |
+
 ### Local testing accounts (isolated demo only)
 
-Login uses an **email address as the username**. These accounts are created by
+These accounts are created by
 `tests/browser_fixture.py`, not by the normal application or production seed.
-
-| Role | Username / email | Password |
-|---|---|---|
-| Admin | `browser@admin.test` | `local-admin-test` |
-| Student | `browser@student.test` | `local-browser-test` |
 
 Start the API and frontend in separate terminals from the repository root:
 
